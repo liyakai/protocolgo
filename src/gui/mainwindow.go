@@ -24,6 +24,7 @@ func Mainwindow() {
 	window.ShowAndRun()
 }
 
+// 生成UI
 func (stapp *stApp) MakeUI() {
 	// 设置窗口大小
 	(*stapp.window).Resize(fyne.NewSize(800, 600))
