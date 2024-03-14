@@ -1,0 +1,2 @@
+time="2024-03-14 19:07:53.426" level=info msg="InitLogger done." func=protocolgo/src/logic.InitLogger file="D:/workspace/code/github/protocolgo/src/logic/log.go:57"
+time="2024-03-14 19:15:52.174" level=info msg="InitLogger done." func=protocolgo/src/logic.InitLogger file="D:/workspace/code/github/protocolgo/src/logic/log.go:64"
