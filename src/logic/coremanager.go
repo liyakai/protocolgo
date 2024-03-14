@@ -1,19 +1,12 @@
 package logic
 
 import (
-	"protocolgo/src/gui"
-
 	"github.com/beevik/etree"
-	"github.com/rs/zerolog"
 )
 
 type CoreManager struct {
-	Stapp *gui.StApp
-
-	Utils  *StUtils       // 工具
-	Logger zerolog.Logger // 自定义Logger
-
-	DocEtree *etree.Document
+	DocEtree    *etree.Document
+	XmlFilePath string // 打开的Xml文件路径
 }
 
 func (Stapp *CoreManager) CreateNewXml() {
@@ -25,13 +18,23 @@ func (Stapp *CoreManager) CreateNewXml() {
 	DocEtree := etree.NewDocument()
 	DocEtree.CreateProcInst("xml", `version="1.0" encoding="UTF-8"`)
 	DocEtree.CreateProcInst("xml-stylesheet", `type="text/xsl" href="style.xsl"`)
+
 }
 
 func (Stapp *CoreManager) ReadXmlFromFile() {
-}
-
-func (Stapp *CoreManager) SaveToFile() {
+	// 如果现在打开的xml不为空,则先保存现在打开的xml
 	if nil != Stapp.DocEtree {
 		Stapp.SaveToFile()
 	}
+	doc := etree.NewDocument()
+	if err := doc.ReadFromFile("bookstore.xml"); err != nil {
+		panic(err)
+	}
+}
+
+func (Stapp *CoreManager) SaveToFile() {
+	if nil == Stapp.DocEtree {
+		return
+	}
+	Stapp.SaveToFile()
 }

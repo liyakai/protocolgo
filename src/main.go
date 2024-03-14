@@ -4,6 +4,7 @@ import (
 	"flag"
 	"protocolgo/src/gui"
 	"protocolgo/src/logic"
+	"protocolgo/src/utils"
 
 	"fyne.io/fyne/v2/app"
 )
@@ -16,14 +17,15 @@ func InitMainWindow() {
 	application := app.New()
 	window := application.NewWindow("protocolgo")
 
-	var coremgr logic.CoreManager
-	coremgr.Stapp = &gui.StApp{App: &application, Window: &window}
-	coremgr.Utils = &logic.StUtils{CoreMgr: &coremgr}
+	var app gui.StApp
+	app.Window = &window
+	app.App = &application
+	app.CoreMgr = logic.CoreManager{}
 
 	// 初始化日志
-	logic.InitLogger(*flag.String("loglevel", "info", "sets log level. trace/debug/info/warn/error/fatal/panic"))
+	utils.InitLogger(*flag.String("loglevel", "info", "sets log level. trace/debug/info/warn/error/fatal/panic"))
 
-	coremgr.Stapp.MakeUI()
+	app.MakeUI()
 
 	window.ShowAndRun()
 }

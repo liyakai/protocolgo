@@ -2,16 +2,19 @@ package gui
 
 import (
 	"log"
+	"protocolgo/src/logic"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
+	"github.com/sirupsen/logrus"
 )
 
 type StApp struct {
-	App    *fyne.App
-	Window *fyne.Window // 主窗口.
+	App     *fyne.App
+	Window  *fyne.Window      // 主窗口.
+	CoreMgr logic.CoreManager // 管理器
 }
 
 // 生成UI
@@ -30,7 +33,6 @@ func (stapp *StApp) CreateMenuItem() {
 
 	// 创建新文件
 	newMenuItem := fyne.NewMenuItem("new..", func() {
-		// stapp.utils.ShowDialog("Debug" "open xml")
 		// 打开文件
 		file_picker := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			// Check for errors
@@ -47,7 +49,6 @@ func (stapp *StApp) CreateMenuItem() {
 	})
 	// 打开菜单项
 	openMenuItem := fyne.NewMenuItem("open..", func() {
-		// stapp.utils.ShowDialog("Debug" "open xml")
 		// 打开文件
 		file_picker := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			// Check for errors
@@ -55,6 +56,8 @@ func (stapp *StApp) CreateMenuItem() {
 				log.Println("Failed to open file:", err)
 				return
 			}
+			xml_file_path := reader.URI().Path()
+			logrus.WithFields(logrus.Fields{"file path": xml_file_path}).Info("Open xml file.")
 		}, *stapp.Window)
 		file_picker.Resize(fyne.NewSize(700, 500))
 		file_picker.SetFilter(storage.NewExtensionFileFilter([]string{".txt", ".xml"}))

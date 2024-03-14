@@ -1,2 +1,9 @@
-time="2024-03-14 19:07:53.426" level=info msg="InitLogger done." func=protocolgo/src/logic.InitLogger file="D:/workspace/code/github/protocolgo/src/logic/log.go:57"
-time="2024-03-14 19:15:52.174" level=info msg="InitLogger done." func=protocolgo/src/logic.InitLogger file="D:/workspace/code/github/protocolgo/src/logic/log.go:64"
+time="2024-03-14T21:04:20+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:71" LogLevel=info
+time="2024-03-14T21:05:09+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:73" LogLevel=info
+time="2024-03-14T21:05:45+08:00" level=info msg="Open xml file." func="protocolgo/src/gui.(*StApp).CreateMenuItem.func2.1" file="D:/workspace/code/github/protocolgo/src/gui/mainwindow.go:58" file path="D:/workspace/code/github/protocolgo/data/protocol.xml"
+time="2024-03-14T21:16:59+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:73" LogLevel=info
+time="2024-03-14T21:17:44+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:73" LogLevel=info
+time="2024-03-14T21:21:31+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:73" LogLevel=info
+time="2024-03-14T21:22:14+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:73" LogLevel=info
+time="2024-03-14T21:22:43+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:73" LogLevel=info
+time="2024-03-14T21:23:07+08:00" level=info msg="InitLogger done." func=protocolgo/src/utils.InitLogger file="D:/workspace/code/github/protocolgo/src/utils/log.go:73" LogLevel=info

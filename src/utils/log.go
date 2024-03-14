@@ -1,4 +1,4 @@
-package logic
+package utils
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/sirupsen/logrus"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Level 日志级别。建议从服务配置读取。
@@ -29,7 +29,7 @@ func InitLogger(LogLevel string) error {
 	// 设置日志格式。
 	logrus.SetFormatter(&CustomTextFormatter{
 		TimestampFormat: "2006-01-02 15:04:05.000",
-		ForceColors:     true,
+		ForceColors:     false,
 		ColorTrace:      color.New(color.FgWhite),
 		ColorDebug:      color.New(color.FgCyan),
 		ColorInfo:       color.New(color.FgGreen),
@@ -70,7 +70,7 @@ func InitLogger(LogLevel string) error {
 	//同时写文件和屏幕
 	fileAndStdoutWriter := io.MultiWriter(writers...)
 	logrus.SetOutput(fileAndStdoutWriter)
-	logrus.Info("InitLogger done.")
+	logrus.WithField("LogLevel", LogLevel).Info("InitLogger done.")
 	return nil
 }
 
