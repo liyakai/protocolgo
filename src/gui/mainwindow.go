@@ -25,7 +25,34 @@ func (stapp *StApp) MakeUI() {
 	(*stapp.App).Settings().SetTheme(theme.DarkTheme())
 	// 添加菜单
 	stapp.CreateMenuItem()
+	// 设置退出策略
+	stapp.SetOnClose()
 
+}
+
+// 自定义退出策略
+func (stapp *StApp) SetOnClose() {
+	// 设置自定义的退出策略
+	(*stapp.Window).SetCloseIntercept(func() {
+		// 创建并显示确认对话框
+		exitConfirm := dialog.NewConfirm("Exit",
+			"Are you sure you want to exit the application?",
+			func(response bool) {
+				if response {
+					// 先尝试保存/关闭文件
+					stapp.CoreMgr.CloseCurrXmlFile()
+					logrus.Info("User closed this app.")
+					(*stapp.App).Quit() // 如果用户点击 “Yes”，则退出程序
+				}
+			},
+			*stapp.Window,
+		)
+		exitConfirm.SetDismissText("No")  // 设置确认对话框的取消按钮文字
+		exitConfirm.SetConfirmText("Yes") // 设置确认对话框的确认按钮文字
+		exitConfirm.Show()                // 显示确认对话框
+
+		exitConfirm.Show()
+	})
 }
 
 // 添加菜单
@@ -50,7 +77,7 @@ func (stapp *StApp) CreateMenuItem() {
 			stapp.CoreMgr.CreateNewXml()
 			// 在此处写入你的文件
 		}, *stapp.Window)
-
+		saveDialog.Resize(fyne.NewSize(700, 500))
 		saveDialog.SetFileName("protocolgo.xml")
 		saveDialog.Show()
 

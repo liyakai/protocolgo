@@ -49,7 +49,7 @@ func (Stapp *CoreManager) SaveToXmlFile() bool {
 
 func (Stapp *CoreManager) CloseCurrXmlFile() {
 	if nil == Stapp.DocEtree {
-		logrus.Warn("CloseCurrXmlFile failed. Stapp.DocEtree is nil.")
+		logrus.Info("Need not close the xml. Stapp.DocEtree is nil.")
 		return
 	}
 	Stapp.SaveToXmlFile()
