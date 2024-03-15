@@ -193,6 +193,8 @@ func (stapp *StApp) CreateTab1() fyne.CanvasObject {
 		},
 		func(i binding.DataItem, o fyne.CanvasObject) {
 			o.(*TableListLabel).Bind(i.(binding.String))
+			o.(*TableListLabel).data = i.(binding.String)
+			o.(*TableListLabel).window = stapp.Window
 		},
 	)
 	return list
