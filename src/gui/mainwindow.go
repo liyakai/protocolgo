@@ -5,9 +5,12 @@ import (
 	"protocolgo/src/logic"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 	"github.com/sirupsen/logrus"
 )
 
@@ -25,6 +28,8 @@ func (stapp *StApp) MakeUI() {
 	(*stapp.App).Settings().SetTheme(theme.DarkTheme())
 	// 添加菜单
 	stapp.CreateMenuItem()
+	// 创建布局
+	stapp.CreateMainContainer()
 	// 设置退出策略
 	stapp.SetOnClose()
 
@@ -126,4 +131,69 @@ func (stapp *StApp) CreateMenuItem() {
 	menu := fyne.NewMainMenu(fileMenu)
 
 	(*stapp.Window).SetMainMenu(menu)
+}
+
+// 创建主体布局
+func (stapp *StApp) CreateMainContainer() {
+	// 创建上部容器
+	topContainer := stapp.CreateTopSearchContainer()
+
+	// 创建下部的标签页容器
+	tabs := container.NewAppTabs(
+		container.NewTabItem("Tab 1", stapp.CreateTab1()),
+		container.NewTabItem("Tab 2", container.NewVBox(widget.NewLabel("This is tab 2 content"))),
+	)
+
+	// 使用垂直布局将上部和下部容器组合在一起
+	mainContainer := container.NewBorder(
+		topContainer,
+		nil,
+		nil,
+		nil,
+		container.NewStack(tabs),
+	)
+	(*stapp.Window).SetContent(mainContainer)
+}
+
+// 创建搜索框的内容
+func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
+	// 创建一个输入框作为搜索框
+	searchEntry := widget.NewEntry()
+	searchEntry.SetPlaceHolder("Search here")
+
+	searchButton := widget.NewButton("Search", func() {
+		// 在这里添加搜索按钮点击后的逻辑，例如打印输入的搜索内容
+		input := searchEntry.Text
+		// 逻辑处理处
+		// fyne.LogInfo("You have searched for:", input)
+		logrus.Info("You have searched for:", input)
+	})
+	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
+	topContainer := container.NewHSplit(container.NewStack(searchEntry), searchButton)
+	topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
+	return topContainer
+}
+
+// 创建页签1的内容
+func (stapp *StApp) CreateTab1() fyne.CanvasObject {
+	// 创建一个列表的数据源
+	stapp.CoreMgr.Table1List = binding.NewStringList()
+
+	// 添加列表数据
+	stapp.CoreMgr.Table1List.Append("Item 1")
+	stapp.CoreMgr.Table1List.Append("Item 2")
+	stapp.CoreMgr.Table1List.Append("Item 3")
+
+	// 创建一个列表
+	list := widget.NewListWithData(stapp.CoreMgr.Table1List,
+		func() fyne.CanvasObject {
+			label := &TableListLabel{}
+			label.ExtendBaseWidget(label)
+			return label
+		},
+		func(i binding.DataItem, o fyne.CanvasObject) {
+			o.(*TableListLabel).Bind(i.(binding.String))
+		},
+	)
+	return list
 }

@@ -3,13 +3,15 @@ package logic
 import (
 	"io"
 
+	"fyne.io/fyne/v2/data/binding"
 	"github.com/beevik/etree"
 	"github.com/sirupsen/logrus"
 )
 
 type CoreManager struct {
 	DocEtree    *etree.Document
-	XmlFilePath string // 打开的Xml文件路径
+	XmlFilePath string             // 打开的Xml文件路径
+	Table1List  binding.StringList // table1 数据源
 }
 
 func (Stapp *CoreManager) CreateNewXml() {
