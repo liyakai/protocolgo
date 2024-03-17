@@ -2,6 +2,7 @@ package gui
 
 import (
 	"log"
+	"os"
 	"protocolgo/src/logic"
 
 	"fyne.io/fyne/v2"
@@ -11,6 +12,8 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/flopp/go-findfont"
+	"github.com/goki/freetype/truetype"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,6 +25,8 @@ type StApp struct {
 
 // 生成UI
 func (stapp *StApp) MakeUI() {
+	// 解决中文乱码
+	// stapp.SuitForChinese()
 	// 设置窗口大小
 	(*stapp.Window).Resize(fyne.NewSize(800, 600))
 	// 设置主题
@@ -33,6 +38,32 @@ func (stapp *StApp) MakeUI() {
 	// 设置退出策略
 	stapp.SetOnClose()
 
+	// 初始化管理器
+	stapp.CoreMgr.Init()
+
+}
+
+// 解决中文乱码问题
+func (stapp *StApp) SuitForChinese() {
+	//设置中文字体
+	fontPath, err := findfont.Find("SIMFANG.TTF")
+	if err != nil {
+		panic(err)
+	}
+	logrus.Info("Found 'SIMFANG.ttf' in ", fontPath)
+
+	// load the font with the freetype library
+	// 原作者使用的ioutil.ReadFile已经弃用
+	fontData, err := os.ReadFile(fontPath)
+	if err != nil {
+		panic(err)
+	}
+	_, err = truetype.Parse(fontData)
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("FYNE_FONT", fontPath)
+	os.Setenv("FYNE_FONT_MONOSPACE", fontPath)
 }
 
 // 自定义退出策略
@@ -82,7 +113,7 @@ func (stapp *StApp) CreateMenuItem() {
 			stapp.CoreMgr.CreateNewXml()
 			// 在此处写入你的文件
 		}, *stapp.Window)
-		saveDialog.Resize(fyne.NewSize(700, 500))
+		saveDialog.Resize(fyne.NewSize(800, 600))
 		saveDialog.SetFileName("protocolgo.xml")
 		saveDialog.Show()
 
@@ -100,10 +131,10 @@ func (stapp *StApp) CreateMenuItem() {
 			// 设定 当前打开的xml文件路径
 			stapp.CoreMgr.SetCurrXmlFilePath(xml_file_path)
 			// 读取到内存
-			stapp.CoreMgr.ReadXmlFromFile(reader)
+			stapp.CoreMgr.ReadXmlFromReader(reader)
 			logrus.Info("Open xml file done.file path:", xml_file_path)
 		}, *stapp.Window)
-		file_picker.Resize(fyne.NewSize(700, 500))
+		file_picker.Resize(fyne.NewSize(800, 600))
 		file_picker.SetFilter(storage.NewExtensionFileFilter([]string{".txt", ".xml"}))
 		// 显示打开文件的UI
 		file_picker.Show()
@@ -179,10 +210,10 @@ func (stapp *StApp) CreateTab1() fyne.CanvasObject {
 	// 创建一个列表的数据源
 	stapp.CoreMgr.Table1List = binding.NewStringList()
 
-	// 添加列表数据
-	stapp.CoreMgr.Table1List.Append("Item 1")
-	stapp.CoreMgr.Table1List.Append("Item 2")
-	stapp.CoreMgr.Table1List.Append("Item 3")
+	// // 添加列表数据
+	// stapp.CoreMgr.Table1List.Append("项目1")
+	// stapp.CoreMgr.Table1List.Append("Item 2")
+	// stapp.CoreMgr.Table1List.Append("Item 3")
 
 	// 创建一个列表
 	list := widget.NewListWithData(stapp.CoreMgr.Table1List,
@@ -197,5 +228,84 @@ func (stapp *StApp) CreateTab1() fyne.CanvasObject {
 			o.(*TableListLabel).window = stapp.Window
 		},
 	)
-	return list
+
+	// 使用垂直布局将上部和下部容器组合在一起
+	buttonwithlist := container.NewBorder(
+		stapp.CreateTab1ListInstruction(),
+		nil,
+		nil,
+		nil,
+		container.NewStack(list),
+	)
+
+	return buttonwithlist
+}
+
+// 创建 tab1的list的说明和button
+func (stapp *StApp) CreateTab1ListInstruction() fyne.CanvasObject {
+	label := widget.NewLabel("tab1 Instruction:")
+	button := widget.NewButton("Add new", func() {
+		// label.SetText("按钮被按下了!")
+		stapp.CreateNewUnit()
+		// stapp.CoreMgr.AddNewEnum("NewEnum")
+	})
+	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
+	topContainer := container.NewHSplit(container.NewStack(label), button)
+	topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
+	return topContainer
+}
+
+// 创建新的unit
+func (stapp *StApp) CreateNewUnit() {
+	dialogContent := container.NewVBox()
+
+	customDialog := dialog.NewCustomWithoutButtons("Edit unit", dialogContent, *stapp.Window)
+	customDialog.Resize(fyne.NewSize(700, 500))
+	// 创建输入信息的容器
+	inputInfoContainer := container.NewVBox()
+	// 创建输入框
+	inputUnitName := widget.NewEntry()
+	inputUnitName.SetPlaceHolder("Enter name...")
+	inputInfoContainer.Add(inputUnitName)
+
+	// 创建一个可变的VBox，这样我们就可以在运行时添加新的Entry
+	firstEntryKey := widget.NewEntry()
+	firstEntryKey.SetPlaceHolder("Enter type...")
+
+	firstEntryValue := widget.NewEntry()
+	firstEntryValue.SetPlaceHolder("Enter variable name...")
+	attrBox := container.NewVBox(container.NewHSplit(firstEntryKey, firstEntryValue))
+
+	// 创建一个"Add" 按钮，点击后在VBox中添加新的Entry
+	addButton := widget.NewButton("Add", func() {
+		entryKey := widget.NewEntry()
+		entryKey.SetPlaceHolder("Enter type...")
+		entryValue := widget.NewEntry()
+		entryValue.SetPlaceHolder("Enter variable name...")
+
+		attrBox.Add(container.NewHSplit(entryKey, entryValue))
+		attrBox.Refresh()
+	})
+	// 创建可以新增列的container
+	attrBoader := container.NewBorder(nil, nil, nil, addButton, attrBox)
+	inputInfoContainer.Add(attrBoader)
+
+	// 增加关闭,保存按钮
+	buttons := container.NewHBox(
+		// Cancel Button
+		widget.NewButton("Cancel", func() {
+			// Cancel logic goes here
+			customDialog.Hide()
+		}),
+		// Save Button
+		widget.NewButton("Save", func() {
+			// Save logic goes here
+			logrus.Info("[CreateNewUnit]Save. inputUnitName: " + inputUnitName.Text)
+			customDialog.Hide()
+		}),
+	)
+	inputInfoContainer.Add(container.NewCenter(buttons))
+	dialogContent.Add(inputInfoContainer)
+	customDialog.Show()
+
 }
