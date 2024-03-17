@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"protocolgo/src/logic"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -259,7 +260,7 @@ func (stapp *StApp) CreateTab1ListInstruction() fyne.CanvasObject {
 func (stapp *StApp) CreateNewUnit() {
 	dialogContent := container.NewVBox()
 
-	customDialog := dialog.NewCustomWithoutButtons("Edit unit", dialogContent, *stapp.Window)
+	customDialog := dialog.NewCustomWithoutButtons("Edit unit", container.NewVScroll(dialogContent), *stapp.Window)
 	customDialog.Resize(fyne.NewSize(700, 500))
 	// 创建输入信息的容器
 	inputInfoContainer := container.NewVBox()
@@ -269,21 +270,29 @@ func (stapp *StApp) CreateNewUnit() {
 	inputInfoContainer.Add(inputUnitName)
 
 	// 创建一个可变的VBox，这样我们就可以在运行时添加新的Entry
+	nEntryIndex := 1
+	firstEntryLabel := widget.NewLabel(strconv.Itoa(nEntryIndex))
 	firstEntryKey := widget.NewEntry()
 	firstEntryKey.SetPlaceHolder("Enter type...")
 
 	firstEntryValue := widget.NewEntry()
 	firstEntryValue.SetPlaceHolder("Enter variable name...")
-	attrBox := container.NewVBox(container.NewHSplit(firstEntryKey, firstEntryValue))
+	oneRow := container.NewHSplit(firstEntryLabel, container.NewHSplit(firstEntryKey, firstEntryValue))
+	oneRow.Offset = 0.02
+	attrBox := container.NewVBox(oneRow)
 
 	// 创建一个"Add" 按钮，点击后在VBox中添加新的Entry
 	addButton := widget.NewButton("Add", func() {
+		nEntryIndex = nEntryIndex + 1
+		entryLabel := widget.NewLabel(strconv.Itoa(nEntryIndex))
 		entryKey := widget.NewEntry()
 		entryKey.SetPlaceHolder("Enter type...")
 		entryValue := widget.NewEntry()
 		entryValue.SetPlaceHolder("Enter variable name...")
 
-		attrBox.Add(container.NewHSplit(entryKey, entryValue))
+		oneRow := container.NewHSplit(entryLabel, container.NewHSplit(entryKey, entryValue))
+		oneRow.Offset = 0.02
+		attrBox.Add(oneRow)
 		attrBox.Refresh()
 	})
 	// 创建可以新增列的container
