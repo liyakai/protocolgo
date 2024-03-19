@@ -29,7 +29,7 @@ func (stapp *StApp) MakeUI() {
 	// 解决中文乱码
 	// stapp.SuitForChinese()
 	// 设置窗口大小
-	(*stapp.Window).Resize(fyne.NewSize(800, 600))
+	(*stapp.Window).Resize(fyne.NewSize(1600, 1200))
 	// 设置主题
 	(*stapp.App).Settings().SetTheme(theme.DarkTheme())
 	// 添加菜单
@@ -114,7 +114,7 @@ func (stapp *StApp) CreateMenuItem() {
 			stapp.CoreMgr.CreateNewXml()
 			// 在此处写入你的文件
 		}, *stapp.Window)
-		saveDialog.Resize(fyne.NewSize(800, 600))
+		saveDialog.Resize(fyne.NewSize(1500, 1100))
 		saveDialog.SetFileName("protocolgo.xml")
 		saveDialog.Show()
 
@@ -135,7 +135,7 @@ func (stapp *StApp) CreateMenuItem() {
 			stapp.CoreMgr.ReadXmlFromReader(reader)
 			logrus.Info("Open xml file done.file path:", xml_file_path)
 		}, *stapp.Window)
-		file_picker.Resize(fyne.NewSize(800, 600))
+		file_picker.Resize(fyne.NewSize(1500, 1100))
 		file_picker.SetFilter(storage.NewExtensionFileFilter([]string{".txt", ".xml"}))
 		// 显示打开文件的UI
 		file_picker.Show()
@@ -247,7 +247,7 @@ func (stapp *StApp) CreateTab1ListInstruction() fyne.CanvasObject {
 	label := widget.NewLabel("tab1 Instruction:")
 	button := widget.NewButton("Add new", func() {
 		// label.SetText("按钮被按下了!")
-		stapp.CreateNewUnit()
+		stapp.CreateMessageUnit()
 		// stapp.CoreMgr.AddNewEnum("NewEnum")
 	})
 	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
@@ -257,44 +257,75 @@ func (stapp *StApp) CreateTab1ListInstruction() fyne.CanvasObject {
 }
 
 // 创建新的unit
-func (stapp *StApp) CreateNewUnit() {
+func (stapp *StApp) CreateMessageUnit() {
 	dialogContent := container.NewVBox()
 
-	customDialog := dialog.NewCustomWithoutButtons("Edit unit", container.NewVScroll(dialogContent), *stapp.Window)
-	customDialog.Resize(fyne.NewSize(700, 500))
+	customDialog := dialog.NewCustomWithoutButtons("Edit Message", container.NewVScroll(dialogContent), *stapp.Window)
+	customDialog.Resize(fyne.NewSize(1500, 1100))
 	// 创建输入信息的容器
 	inputInfoContainer := container.NewVBox()
 	// 创建输入框
 	inputUnitName := widget.NewEntry()
-	inputUnitName.SetPlaceHolder("Enter name...")
+	inputUnitName.SetPlaceHolder("Enter Message name...")
 	inputInfoContainer.Add(inputUnitName)
 
-	// 创建一个可变的VBox，这样我们就可以在运行时添加新的Entry
-	nEntryIndex := 1
-	firstEntryLabel := widget.NewLabel(strconv.Itoa(nEntryIndex))
-	firstEntryKey := widget.NewEntry()
-	firstEntryKey.SetPlaceHolder("Enter type...")
-
-	firstEntryValue := widget.NewEntry()
-	firstEntryValue.SetPlaceHolder("Enter variable name...")
-	oneRow := container.NewHSplit(firstEntryLabel, container.NewHSplit(firstEntryKey, firstEntryValue))
-	oneRow.Offset = 0.02
-	attrBox := container.NewVBox(oneRow)
+	nEntryIndex := 0
+	// 在外部定义一个列表来保存每一行的组件
+	var rowList []logic.EditRowMessage
 
 	// 创建一个"Add" 按钮，点击后在VBox中添加新的Entry
-	addButton := widget.NewButton("Add", func() {
+	attrBox := container.NewVBox()
+
+	// 增加字段
+	addButton := widget.NewButton("Add field", func() {
 		nEntryIndex = nEntryIndex + 1
-		entryLabel := widget.NewLabel(strconv.Itoa(nEntryIndex))
+		selectComponent := widget.NewSelect([]string{"optional", "repeated"}, nil)
+		selectComponent.Selected = "optional"
+		entryIndex := widget.NewEntry()
+		entryIndex.SetText(strconv.Itoa(nEntryIndex))
 		entryKey := widget.NewEntry()
 		entryKey.SetPlaceHolder("Enter type...")
 		entryValue := widget.NewEntry()
 		entryValue.SetPlaceHolder("Enter variable name...")
 
-		oneRow := container.NewHSplit(entryLabel, container.NewHSplit(entryKey, entryValue))
-		oneRow.Offset = 0.02
-		attrBox.Add(oneRow)
+		oneRowInfo := container.NewHSplit(selectComponent, container.NewHSplit(entryKey, entryValue))
+		oneRowInfo.Offset = 0.05
+		oneRow := container.NewHSplit(oneRowInfo, entryIndex)
+		oneRow.Offset = 0.95
+
+		// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
+		editRow := logic.EditRowMessage{
+			EntryIndex:      entryIndex,
+			SelectComponent: selectComponent,
+			EntryKey:        entryKey,
+			EntryValue:      entryValue,
+		}
+		var deleteFunc func() // 声明删除操作函数
+		// 在每一行添加一个"删除"按钮
+		deleteButton := widget.NewButton("Delete", func() {
+			if deleteFunc != nil {
+				deleteFunc()
+			}
+		})
+		oneRowWithDeleteButton := container.NewHSplit(deleteButton, oneRow)
+		oneRowWithDeleteButton.Offset = 0.01
+
+		// 将删除操作定义为一个独立的函数
+		deleteFunc = func() {
+			// 从rowList和attrBox中移除该行
+			rowList = editRow.RemoveElementFromSlice(rowList, editRow)
+			attrBox.Remove(oneRowWithDeleteButton)
+			attrBox.Refresh()
+			customDialog.Refresh()
+		}
+
+		attrBox.Add(oneRowWithDeleteButton)
 		attrBox.Refresh()
+
+		rowList = append(rowList, editRow)
+
 	})
+
 	// 创建可以新增列的container
 	attrBoader := container.NewBorder(nil, nil, nil, addButton, attrBox)
 	inputInfoContainer.Add(attrBoader)
@@ -310,6 +341,36 @@ func (stapp *StApp) CreateNewUnit() {
 		widget.NewButton("Save", func() {
 			// Save logic goes here
 			logrus.Info("[CreateNewUnit]Save. inputUnitName: " + inputUnitName.Text)
+			// 检查 inputUnitName 的合法性
+			if inputUnitName.Text == "" {
+				dialog.ShowInformation("Error!", "The message name is invalid", *stapp.Window)
+				return
+			}
+
+			// TODO 检查 EntryIndex 是否有重复的或者空的.
+
+			for _, rowComponents := range rowList {
+				logrus.Info("entryLabel: ", rowComponents.EntryIndex.Text)
+				logrus.Info("selectComponent selected: ", rowComponents.SelectComponent.Selected)
+				logrus.Info("entryKey value: ", rowComponents.EntryKey.Text)
+				logrus.Info("entryValue: ", rowComponents.EntryValue.Text)
+				// 检查 EntryIndex 的合法性
+				if rowComponents.EntryIndex.Text == "" {
+					dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
+					return
+				}
+				// 检查 key 的合法性
+				if rowComponents.EntryKey.Text == "" {
+					dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryKey is invalid", *stapp.Window)
+					return
+				}
+				// 检查 value 的合法性
+				if rowComponents.EntryValue.Text == "" {
+					dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryValue is invalid", *stapp.Window)
+					return
+				}
+			}
+
 			customDialog.Hide()
 		}),
 	)
