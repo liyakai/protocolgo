@@ -4,7 +4,9 @@ import (
 	"log"
 	"os"
 	"protocolgo/src/logic"
+	"protocolgo/src/utils"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -256,6 +258,50 @@ func (stapp *StApp) CreateTab1ListInstruction() fyne.CanvasObject {
 	return topContainer
 }
 
+// 检查 EditMessage
+func (stapp *StApp) CheckEditMessage(editMsg logic.EditMessage) bool {
+	// 检查 message name 的合法性
+	if editMsg.MsgName == "" || strings.Contains(editMsg.MsgName, " ") || utils.CheckPositiveInteger(editMsg.MsgName) {
+		logrus.Error("CheckEditMessage failed. MsgName: ", editMsg.MsgName)
+		dialog.ShowInformation("Error!", "The message name is invalid", *stapp.Window)
+		return false
+	}
+
+	// TODO 检查 EntryIndex 是否有重复的或者空的.
+
+	for _, rowComponents := range editMsg.RowList {
+		// 检查 EntryIndex 的合法性
+		if rowComponents.EntryIndex.Text == "" || !utils.CheckPositiveInteger(rowComponents.EntryIndex.Text) {
+			logrus.Error("CheckEditMessage failed. EntryIndex: ", rowComponents.EntryIndex.Text)
+			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
+			return false
+		}
+		// 检查 key 的合法性
+		if rowComponents.EntryKey.Text == "" || strings.Contains(rowComponents.EntryKey.Text, " ") {
+			logrus.Error("CheckEditMessage failed. EntryKey: ", rowComponents.EntryKey.Text)
+			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryKey is invalid", *stapp.Window)
+			return false
+		}
+		// 检查 value 的合法性
+		if rowComponents.EntryValue.Text == "" || strings.Contains(rowComponents.EntryValue.Text, " ") {
+			logrus.Error("CheckEditMessage failed. EntryValue: ", rowComponents.EntryValue.Text)
+			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryValue is invalid", *stapp.Window)
+			return false
+		}
+	}
+
+	if !logic.CheckFieldNameList(editMsg.RowList) {
+		dialog.ShowInformation("Error!", " The field name ara duplicate", *stapp.Window)
+		return false
+	}
+
+	if !logic.CheckFieldIndexList(editMsg.RowList) {
+		dialog.ShowInformation("Error!", " The field index ara duplicate", *stapp.Window)
+		return false
+	}
+	return true
+}
+
 // 创建新的unit
 func (stapp *StApp) CreateMessageUnit() {
 	dialogContent := container.NewVBox()
@@ -279,8 +325,8 @@ func (stapp *StApp) CreateMessageUnit() {
 	// 增加字段
 	addButton := widget.NewButton("Add field", func() {
 		nEntryIndex = nEntryIndex + 1
-		selectComponent := widget.NewSelect([]string{"optional", "repeated"}, nil)
-		selectComponent.Selected = "optional"
+		selectEntryType := widget.NewSelect([]string{"optional", "repeated"}, nil)
+		selectEntryType.Selected = "optional"
 		entryIndex := widget.NewEntry()
 		entryIndex.SetText(strconv.Itoa(nEntryIndex))
 		entryKey := widget.NewEntry()
@@ -288,17 +334,17 @@ func (stapp *StApp) CreateMessageUnit() {
 		entryValue := widget.NewEntry()
 		entryValue.SetPlaceHolder("Enter variable name...")
 
-		oneRowInfo := container.NewHSplit(selectComponent, container.NewHSplit(entryKey, entryValue))
+		oneRowInfo := container.NewHSplit(selectEntryType, container.NewHSplit(entryKey, entryValue))
 		oneRowInfo.Offset = 0.05
 		oneRow := container.NewHSplit(oneRowInfo, entryIndex)
 		oneRow.Offset = 0.95
 
 		// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
 		editRow := logic.EditRowMessage{
-			EntryIndex:      entryIndex,
-			SelectComponent: selectComponent,
-			EntryKey:        entryKey,
-			EntryValue:      entryValue,
+			EntryIndex: entryIndex,
+			EntryType:  selectEntryType,
+			EntryKey:   entryKey,
+			EntryValue: entryValue,
 		}
 		var deleteFunc func() // 声明删除操作函数
 		// 在每一行添加一个"删除"按钮
@@ -341,34 +387,18 @@ func (stapp *StApp) CreateMessageUnit() {
 		widget.NewButton("Save", func() {
 			// Save logic goes here
 			logrus.Info("[CreateNewUnit]Save. inputUnitName: " + inputUnitName.Text)
-			// 检查 inputUnitName 的合法性
-			if inputUnitName.Text == "" {
-				dialog.ShowInformation("Error!", "The message name is invalid", *stapp.Window)
+
+			var editMsg logic.EditMessage
+			editMsg.MsgName = inputUnitName.Text
+			editMsg.RowList = rowList
+			if !stapp.CheckEditMessage(editMsg) {
+				logrus.Error("[CreateNewUnit] CheckEditMessage failed.")
 				return
 			}
 
-			// TODO 检查 EntryIndex 是否有重复的或者空的.
-
-			for _, rowComponents := range rowList {
-				logrus.Info("entryLabel: ", rowComponents.EntryIndex.Text)
-				logrus.Info("selectComponent selected: ", rowComponents.SelectComponent.Selected)
-				logrus.Info("entryKey value: ", rowComponents.EntryKey.Text)
-				logrus.Info("entryValue: ", rowComponents.EntryValue.Text)
-				// 检查 EntryIndex 的合法性
-				if rowComponents.EntryIndex.Text == "" {
-					dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
-					return
-				}
-				// 检查 key 的合法性
-				if rowComponents.EntryKey.Text == "" {
-					dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryKey is invalid", *stapp.Window)
-					return
-				}
-				// 检查 value 的合法性
-				if rowComponents.EntryValue.Text == "" {
-					dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryValue is invalid", *stapp.Window)
-					return
-				}
+			if !stapp.CoreMgr.AddNewMessage(editMsg) {
+				logrus.Error("[CreateNewUnit] AddNewMessage failed.")
+				return
 			}
 
 			customDialog.Hide()

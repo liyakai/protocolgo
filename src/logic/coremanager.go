@@ -119,3 +119,37 @@ func (Stapp *CoreManager) AddNewEnum(enumName string) bool {
 	logrus.Info("AddNewEnum done. enumName:", enumName)
 	return true
 }
+
+// 新增Message
+func (Stapp *CoreManager) AddNewMessage(editMsg EditMessage) bool {
+	if nil == Stapp.DocEtree {
+		logrus.Error("AddNewMessage failed. Stapp.DocEtree is nil, open the xml")
+		return false
+	}
+
+	// 先查找是否有枚举的分类
+	msg_catagory := Stapp.DocEtree.FindElement("message")
+	if msg_catagory == nil {
+		msg_catagory = Stapp.DocEtree.CreateElement("message")
+	}
+	// 在查找枚举中是否有对应的key
+	enum_unit := msg_catagory.FindElement(editMsg.MsgName)
+	if enum_unit != nil {
+		logrus.Error("AddNewMessage failed. repeatted enum name. enumName:", editMsg.MsgName)
+		return false
+	}
+	enum_unit = msg_catagory.CreateElement(editMsg.MsgName)
+	// elem_enum.CreateComment("Comment")
+	// enum_unit.CreateAttr("AttrKey", "AttrValue")
+	for _, row := range editMsg.RowList {
+		enum_atom := enum_unit.CreateElement(editMsg.MsgName)
+		enum_atom.CreateAttr("EntryType", row.EntryType.Selected)
+		enum_atom.CreateAttr("EntryKey", row.EntryKey.Text)
+		enum_atom.CreateAttr("EntryValue", row.EntryValue.Text)
+		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
+	}
+
+	Stapp.SaveToXmlFile()
+	logrus.Info("AddNewMessage done. enumName:", editMsg.MsgName)
+	return true
+}
