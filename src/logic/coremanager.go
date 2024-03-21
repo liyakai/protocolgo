@@ -2,7 +2,6 @@ package logic
 
 import (
 	"io"
-	"strings"
 
 	"protocolgo/src/utils"
 
@@ -12,9 +11,10 @@ import (
 )
 
 type CoreManager struct {
-	DocEtree    *etree.Document
-	XmlFilePath string             // 打开的Xml文件路径
-	Table1List  binding.StringList // table1 数据源
+	DocEtree         *etree.Document
+	XmlFilePath      string             // 打开的Xml文件路径
+	EnumTableList    binding.StringList // enum 数据源
+	MessageTableList binding.StringList // message 数据源
 }
 
 func (Stapp *CoreManager) Init() {
@@ -46,6 +46,7 @@ func (Stapp *CoreManager) ReadXmlFromReader(reader io.Reader) {
 		logrus.Error("ReadXmlFromReader failed. err:", err)
 		panic(err)
 	}
+	Stapp.SyncMessageListWithETree()
 	logrus.Info("ReadXmlFromReader done.")
 }
 
@@ -59,6 +60,7 @@ func (Stapp *CoreManager) ReadXmlFromFile(filename string) {
 		logrus.Error("ReadXmlFromFile failed. err:", err)
 		panic(err)
 	}
+	Stapp.SyncMessageListWithETree()
 	logrus.Info("ReadXmlFromFile done.")
 }
 
@@ -89,34 +91,37 @@ func (Stapp *CoreManager) SetCurrXmlFilePath(currFilePath string) {
 	logrus.Info("SetCurrXmlFilePath done.currFilePath:", currFilePath)
 }
 
-// 新增枚举
-func (Stapp *CoreManager) AddNewEnum(enumName string) bool {
+// 新增 Enum
+func (Stapp *CoreManager) AddNewEnum(editMsg EditEnum) bool {
 	if nil == Stapp.DocEtree {
 		logrus.Error("AddNewEnum failed. Stapp.DocEtree is nil, open the xml")
 		return false
 	}
-	if strings.Contains(enumName, " ") {
-		logrus.Error("AddNewEnum failed. enumName has empty space.")
-		return false
-	}
+
 	// 先查找是否有枚举的分类
-	enum_catagory := Stapp.DocEtree.FindElement("enum")
-	if enum_catagory == nil {
-		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+	msg_catagory := Stapp.DocEtree.FindElement("enum")
+	if msg_catagory == nil {
+		msg_catagory = Stapp.DocEtree.CreateElement("enum")
 	}
 	// 在查找枚举中是否有对应的key
-	enum_unit := enum_catagory.FindElement(enumName)
+	enum_unit := msg_catagory.FindElement(editMsg.EnumName)
 	if enum_unit != nil {
-		logrus.Error("AddNewEnum failed. repeatted enum name. enumName:", enumName)
+		logrus.Error("AddNewMessage failed. repeatted enum name. enumName:", editMsg.EnumName)
 		return false
 	}
-	enum_unit = enum_catagory.CreateElement(enumName)
+	enum_unit = msg_catagory.CreateElement(editMsg.EnumName)
 	// elem_enum.CreateComment("Comment")
 	// enum_unit.CreateAttr("AttrKey", "AttrValue")
-	enum_atom := enum_unit.CreateElement("name")
-	enum_atom.CreateAttr("Attr", "attr")
+	for _, row := range editMsg.RowList {
+		enum_atom := enum_unit.CreateElement(editMsg.EnumName)
+		enum_atom.CreateAttr("EntryName", row.EntryName.Text)
+		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
+	}
+	// Stapp.EnumTableList.Append(editMsg.EnumName)
+	Stapp.SyncMessageListWithETree()
+
 	Stapp.SaveToXmlFile()
-	logrus.Info("AddNewEnum done. enumName:", enumName)
+	logrus.Info("AddNewMessage done. enumName:", editMsg.EnumName)
 	return true
 }
 
@@ -148,7 +153,7 @@ func (Stapp *CoreManager) AddNewMessage(editMsg EditMessage) bool {
 		enum_atom.CreateAttr("EntryValue", row.EntryValue.Text)
 		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
 	}
-	// Stapp.Table1List.Append(editMsg.MsgName)
+	// Stapp.EnumTableList.Append(editMsg.MsgName)
 	Stapp.SyncMessageListWithETree()
 
 	Stapp.SaveToXmlFile()
@@ -162,18 +167,31 @@ func (Stapp *CoreManager) SyncMessageListWithETree() bool {
 		return false
 	}
 
-	// 先查找是否有枚举的分类
+	// 先查找是否有 enum 的分类
+	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	if enum_catagory == nil {
+		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+	}
+	newEnumListString := []string{}
+
+	// 遍历子元素
+	for _, child := range enum_catagory.ChildElements() {
+		newEnumListString = append(newEnumListString, child.Tag)
+	}
+	Stapp.EnumTableList.Set(newEnumListString)
+
+	// 先查找是否有message的分类
 	msg_catagory := Stapp.DocEtree.FindElement("message")
 	if msg_catagory == nil {
 		msg_catagory = Stapp.DocEtree.CreateElement("message")
 	}
-	newListString := []string{}
+	newMessageListString := []string{}
 
 	// 遍历子元素
 	for _, child := range msg_catagory.ChildElements() {
-		newListString = append(newListString, child.Tag)
+		newMessageListString = append(newMessageListString, child.Tag)
 	}
-	Stapp.Table1List.Set(newListString)
+	Stapp.MessageTableList.Set(newMessageListString)
 	logrus.Info("SyncListWithETree done.")
 	return true
 }

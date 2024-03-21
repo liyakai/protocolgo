@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"unicode"
 )
 
 type StUtils struct {
@@ -24,4 +25,17 @@ func CheckPositiveInteger(str string) bool {
 	}
 
 	return num > 0
+}
+
+// 检查字符串是否以数字开头
+func CheckStartWithNum(str string) bool {
+	if len(str) > 0 {
+		r := rune(str[0])
+		if unicode.IsDigit(r) {
+			return true
+		} else {
+			return false
+		}
+	}
+	return false
 }

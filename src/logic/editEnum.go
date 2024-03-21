@@ -7,15 +7,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Message 的一行数据
-type EditRowMessage struct {
+// Enum 的一行数据
+type EditRowEnum struct {
+	EntryName  *widget.Entry
 	EntryIndex *widget.Entry
-	EntryType  *widget.Select
-	EntryKey   *widget.Entry
-	EntryValue *widget.Entry
 }
 
-func (editrow *EditRowMessage) RemoveElementFromSlice(s []EditRowMessage, elementToBeDeleted EditRowMessage) []EditRowMessage {
+// Enum 数据
+type EditEnum struct {
+	EnumName string
+	RowList  []EditRowEnum
+}
+
+func (editrow *EditRowEnum) RemoveElementFromSlice(s []EditRowEnum, elementToBeDeleted EditRowEnum) []EditRowEnum {
 	for i, element := range s {
 		// 使用适当的比较来确定哪一个元素应被删除
 		if element == elementToBeDeleted {
@@ -26,14 +30,14 @@ func (editrow *EditRowMessage) RemoveElementFromSlice(s []EditRowMessage, elemen
 }
 
 // 检查字段名是否有相同的,或者有空的.
-func CheckFieldNameList(rowList []EditRowMessage) bool {
+func CheckEnumFieldNameList(rowList []EditRowEnum) bool {
 	fieldValueNames := make([]string, len(rowList))
 	for i, row := range rowList {
-		if row.EntryValue.Text == "" {
+		if row.EntryName.Text == "" {
 			logrus.Error("Found an empty field name. Index:", row.EntryIndex.Text)
 			return false
 		}
-		fieldValueNames[i] = row.EntryValue.Text
+		fieldValueNames[i] = row.EntryName.Text
 	}
 
 	sort.Strings(fieldValueNames)
@@ -49,11 +53,11 @@ func CheckFieldNameList(rowList []EditRowMessage) bool {
 }
 
 // 检查字段序列号是否有相同的,或者有空的.
-func CheckFieldIndexList(rowList []EditRowMessage) bool {
+func CheckEnumFieldIndexList(rowList []EditRowEnum) bool {
 	fieldIndexes := make([]string, len(rowList))
 	for i, row := range rowList {
 		if row.EntryIndex.Text == "" {
-			logrus.Error("Found an empty field index. EntryValue:", row.EntryValue.Text)
+			logrus.Error("Found an empty field index. EntryName:", row.EntryName.Text)
 			return false
 		}
 		fieldIndexes[i] = row.EntryIndex.Text
