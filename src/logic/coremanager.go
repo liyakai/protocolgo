@@ -148,8 +148,32 @@ func (Stapp *CoreManager) AddNewMessage(editMsg EditMessage) bool {
 		enum_atom.CreateAttr("EntryValue", row.EntryValue.Text)
 		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
 	}
+	// Stapp.Table1List.Append(editMsg.MsgName)
+	Stapp.SyncMessageListWithETree()
 
 	Stapp.SaveToXmlFile()
 	logrus.Info("AddNewMessage done. enumName:", editMsg.MsgName)
+	return true
+}
+
+func (Stapp *CoreManager) SyncMessageListWithETree() bool {
+	if nil == Stapp.DocEtree {
+		logrus.Error("SyncListWithETree failed. Stapp.DocEtree is nil, open the xml")
+		return false
+	}
+
+	// 先查找是否有枚举的分类
+	msg_catagory := Stapp.DocEtree.FindElement("message")
+	if msg_catagory == nil {
+		msg_catagory = Stapp.DocEtree.CreateElement("message")
+	}
+	newListString := []string{}
+
+	// 遍历子元素
+	for _, child := range msg_catagory.ChildElements() {
+		newListString = append(newListString, child.Tag)
+	}
+	Stapp.Table1List.Set(newListString)
+	logrus.Info("SyncListWithETree done.")
 	return true
 }
