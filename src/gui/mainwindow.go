@@ -1,7 +1,9 @@
 package gui
 
 import (
+	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 	"protocolgo/src/logic"
 	"protocolgo/src/utils"
@@ -14,7 +16,9 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
+
 	"fyne.io/fyne/v2/widget"
+	xwidget "fyne.io/x/fyne/widget"
 	"github.com/flopp/go-findfont"
 	"github.com/goki/freetype/truetype"
 	"github.com/sirupsen/logrus"
@@ -333,6 +337,40 @@ func (stapp *StApp) CreateMessageUnit() {
 		entryKey.SetPlaceHolder("Enter type...")
 		entryValue := widget.NewEntry()
 		entryValue.SetPlaceHolder("Enter variable name...")
+
+		entryKeySelect := xwidget.NewCompletionEntry([]string{})
+		// 设置默认值
+		// When the use typed text, complete the list.
+		entryKeySelect.OnChanged = func(s string) {
+			// completion start for text length >= 3
+			if len(s) < 3 {
+				entryKeySelect.HideCompletion()
+				return
+			}
+
+			// Make a search on wikipedia
+			resp, err := http.Get(
+				"https://en.wikipedia.org/w/api.php?action=opensearch&search=" + entryKeySelect.Text,
+			)
+			if err != nil {
+				entryKeySelect.HideCompletion()
+				return
+			}
+
+			// Get the list of possible completion
+			var results [][]string
+			json.NewDecoder(resp.Body).Decode(&results)
+
+			// no results
+			if len(results) == 0 {
+				entryKeySelect.HideCompletion()
+				return
+			}
+
+			// then show them
+			entryKeySelect.SetOptions(results[1])
+			entryKeySelect.ShowCompletion()
+		}
 
 		oneRowInfo := container.NewHSplit(selectEntryType, container.NewHSplit(entryKey, entryValue))
 		oneRowInfo.Offset = 0.05
