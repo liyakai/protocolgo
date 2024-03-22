@@ -227,7 +227,8 @@ func (stapp *StApp) CreateEnumTab() fyne.CanvasObject {
 		func(i binding.DataItem, o fyne.CanvasObject) {
 			o.(*TableListLabel).Bind(i.(binding.String))
 			o.(*TableListLabel).data = i.(binding.String)
-			o.(*TableListLabel).window = stapp.Window
+			o.(*TableListLabel).app = stapp
+			o.(*TableListLabel).tabletype = logic.TableType_Enum
 		},
 	)
 
@@ -258,7 +259,8 @@ func (stapp *StApp) CreateMessageTab() fyne.CanvasObject {
 		func(i binding.DataItem, o fyne.CanvasObject) {
 			o.(*TableListLabel).Bind(i.(binding.String))
 			o.(*TableListLabel).data = i.(binding.String)
-			o.(*TableListLabel).window = stapp.Window
+			o.(*TableListLabel).app = stapp
+			o.(*TableListLabel).tabletype = logic.TableType_Message
 		},
 	)
 

@@ -1,7 +1,7 @@
 package gui
 
 import (
-	"fmt"
+	"protocolgo/src/logic"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -14,8 +14,9 @@ import (
 // table1 列表项
 type TableListLabel struct {
 	widget.Label
-	data   binding.String
-	window *fyne.Window
+	data      binding.String
+	app       *StApp
+	tabletype logic.TableType
 }
 
 // 单击事件
@@ -44,10 +45,12 @@ func (m *TableListLabel) TappedSecondary(e *fyne.PointEvent) {
 	popUpContent.Add(widget.NewButton("Delete", func() {
 		dialog.NewConfirm("Confirmation", "Are you sure to delete?", func(response bool) {
 			if response { // if 'Yes' clicked
-				fmt.Println("Option 2 clicked")
+				logrus.Info("User confirm to delete: " + msg)
+				msg, _ := m.data.Get()
+				m.app.CoreMgr.DeleteCurrUnit(m.tabletype, msg)
 			}
 			popUp.Hide() // 隐藏窗口
-		}, *m.window).Show()
+		}, *m.app.Window).Show()
 	}))
 
 	// 设置窗口的位置

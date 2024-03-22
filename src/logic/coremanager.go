@@ -10,6 +10,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// 定义页签类型
+type TableType int
+
+const (
+	TableType_Enum TableType = iota + 1
+	TableType_Message
+)
+
 type CoreManager struct {
 	DocEtree         *etree.Document
 	XmlFilePath      string             // 打开的Xml文件路径
@@ -159,6 +167,36 @@ func (Stapp *CoreManager) AddNewMessage(editMsg EditMessage) bool {
 	Stapp.SaveToXmlFile()
 	logrus.Info("AddNewMessage done. enumName:", editMsg.MsgName)
 	return true
+}
+
+// 删除 enum/message 列表元素
+func (Stapp *CoreManager) DeleteCurrUnit(tableType TableType, rowName string) bool {
+
+	var strUnitType string
+	if tableType == TableType_Enum {
+		strUnitType = "enum"
+	} else if tableType == TableType_Message {
+		strUnitType = "message"
+	}
+
+	// 先查找是否有枚举的分类
+	catagory := Stapp.DocEtree.FindElement(strUnitType)
+	if catagory == nil {
+		logrus.Error("DeleteCurrUnit failed. TableType:", tableType, ", strUnitType:", strUnitType, ", rowName:", rowName)
+		return false
+	}
+	// 在查找枚举中是否有对应的key
+	unit := catagory.FindElement(rowName)
+	if unit == nil {
+		logrus.Error("DeleteCurrUnit failed. Can not find target.  TableType:", tableType, ", strUnitType:", strUnitType, ", rowName:", rowName)
+		return false
+	}
+	catagory.RemoveChild(catagory.SelectElement(rowName))
+
+	Stapp.SyncMessageListWithETree()
+
+	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitType:", strUnitType, ", rowName:", rowName)
+	return false
 }
 
 func (Stapp *CoreManager) SyncMessageListWithETree() bool {
