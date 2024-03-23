@@ -37,8 +37,9 @@ func (m *TableListLabel) TappedSecondary(e *fyne.PointEvent) {
 
 	// 增加 Edit 选项
 	popUpContent.Add(widget.NewButton("Edit", func() {
-		logrus.Info("Option 1 clicked")
-		popUp.Hide() // 隐藏窗口
+		logrus.Info("Edit clicked. Item: "+msg+",tabletype:", m.tabletype)
+		m.app.EditUnit(m.tabletype, msg)
+		// popUp.Hide() // 隐藏窗口
 	}))
 
 	// 增加 Delete选项
@@ -67,4 +68,5 @@ func (m *TableListLabel) DoubleTapped(e *fyne.PointEvent) {
 	// 处理双击事件
 	msg, _ := m.data.Get()
 	logrus.Info("Double clicked! Item: "+msg+",tabletype:", m.tabletype)
+	m.app.EditUnit(m.tabletype, msg)
 }

@@ -15,6 +15,13 @@ type StRowUnit struct {
 	EntryName   *widget.Entry
 }
 
+type StStrRowUnit struct {
+	EntryIndex  string
+	EntryOption string
+	EntryType   string
+	EntryName   string
+}
+
 // Unit 数据
 type StUnit struct {
 	UnitName  string

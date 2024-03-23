@@ -104,10 +104,10 @@ func (Stapp *CoreManager) SetCurrXmlFilePath(currFilePath string) {
 	logrus.Info("SetCurrXmlFilePath done.currFilePath:", currFilePath)
 }
 
-// 新增 StUnit
-func (Stapp *CoreManager) AddNewUnit(stUnit StUnit) bool {
+// 处理 StUnit
+func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
 	if nil == Stapp.DocEtree {
-		logrus.Error("AddNewUnit failed. Stapp.DocEtree is nil, open the xml")
+		logrus.Error("EditUnit failed. Stapp.DocEtree is nil, open the xml")
 		return false
 	}
 
@@ -128,8 +128,7 @@ func (Stapp *CoreManager) AddNewUnit(stUnit StUnit) bool {
 	// 在查找枚举中是否有对应的key
 	enum_unit := msg_catagory.FindElement(stUnit.UnitName)
 	if enum_unit != nil {
-		logrus.Error("AddNewUnit failed. repeatted enum name. enumName:", stUnit.UnitName)
-		return false
+		msg_catagory.RemoveChild(msg_catagory.SelectElement(stUnit.UnitName))
 	}
 	enum_unit = msg_catagory.CreateElement(stUnit.UnitName)
 	// elem_enum.CreateComment("Comment")
@@ -150,58 +149,76 @@ func (Stapp *CoreManager) AddNewUnit(stUnit StUnit) bool {
 	Stapp.SyncMessageListWithETree()
 
 	Stapp.SaveToXmlFile()
-	logrus.Info("AddNewUnit done. enumName:", stUnit.UnitName)
+	logrus.Info("EditUnit done. enumName:", stUnit.UnitName)
 	return true
 }
 
-// 删除 enum/message 列表元素
-func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) bool {
-
+func (Stapp *CoreManager) GetEtreeRootName(tableType ETableType) string {
 	var strUnitType string
 	if tableType == TableType_Enum {
 		strUnitType = "enum"
 	} else if tableType == TableType_Message {
 		strUnitType = "message"
 	}
+	return strUnitType
+}
+
+// 删除 enum/message 列表元素
+func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) bool {
+
+	strUnitName := Stapp.GetEtreeRootName(tableType)
 
 	// 先查找是否有枚举的分类
-	catagory := Stapp.DocEtree.FindElement(strUnitType)
+	catagory := Stapp.DocEtree.FindElement(strUnitName)
 	if catagory == nil {
-		logrus.Error("DeleteCurrUnit failed. TableType:", tableType, ", strUnitType:", strUnitType, ", rowName:", rowName)
+		logrus.Error("DeleteCurrUnit failed. TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 		return false
 	}
-	// 在查找枚举中是否有对应的key
+	// 在查找Unit中是否有对应的key
 	unit := catagory.FindElement(rowName)
 	if unit == nil {
-		logrus.Error("DeleteCurrUnit failed. Can not find target.  TableType:", tableType, ", strUnitType:", strUnitType, ", rowName:", rowName)
+		logrus.Error("DeleteCurrUnit failed. Can not find target.  TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 		return false
 	}
 	catagory.RemoveChild(catagory.SelectElement(rowName))
 
 	Stapp.SyncMessageListWithETree()
 
-	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitType:", strUnitType, ", rowName:", rowName)
+	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 	return false
 }
 
 func (Stapp *CoreManager) GetTableListByType(tabletype ETableType) *binding.StringList {
 	if tabletype == TableType_Enum {
-		logrus.Debug("GetTableListByType. tabletype:", tabletype)
 		return &Stapp.EnumTableList
 	} else {
-		logrus.Debug("GetTableListByType. tabletype:", tabletype)
 		return &Stapp.MessageTableList
 	}
 }
 
 func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
 	if tabletype == TableType_Enum {
-		logrus.Debug("GetLableStingByType. tabletype:", tabletype)
 		return "enum list:"
 	} else {
-		logrus.Debug("GetLableStingByType. tabletype:", tabletype)
 		return "message list:"
 	}
+}
+
+func (Stapp *CoreManager) GetEtreeElem(tabletype ETableType, rowName string) *etree.Element {
+	strUnitName := Stapp.GetEtreeRootName(tabletype)
+	// 先查找是否有枚举的分类
+	catagory := Stapp.DocEtree.FindElement(strUnitName)
+	if catagory == nil {
+		logrus.Error("GetEtreeElem failed. tabletype:", tabletype, ", strUnitName:", strUnitName, ", rowName:", rowName)
+		return nil
+	}
+	// 在查找枚举中是否有对应的key
+	unit := catagory.FindElement(rowName)
+	if unit == nil {
+		logrus.Error("GetEtreeElem failed. Can not find target. tabletype:", tabletype, ", strUnitName:", strUnitName, ", rowName:", rowName)
+		return nil
+	}
+	return unit
 }
 
 func (Stapp *CoreManager) SyncMessageListWithETree() bool {
@@ -238,4 +255,31 @@ func (Stapp *CoreManager) SyncMessageListWithETree() bool {
 	Stapp.MessageTableList.Set(newMessageListString)
 	logrus.Info("SyncListWithETree done.")
 	return true
+}
+
+// 检查name 是否重复
+func (Stapp *CoreManager) CheckExistSameName(name string) bool {
+	// 先查找是否有 enum 的分类
+	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	if enum_catagory == nil {
+		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+	}
+
+	// 查找 enum 名字
+	enum_uint := enum_catagory.FindElement(name)
+	if enum_uint != nil {
+		return true
+	}
+
+	// 先查找是否有message的分类
+	msg_catagory := Stapp.DocEtree.FindElement("message")
+	if msg_catagory == nil {
+		msg_catagory = Stapp.DocEtree.CreateElement("message")
+	}
+	// 查找 message 名字
+	msg_uint := msg_catagory.FindElement(name)
+	if msg_uint != nil {
+		return true
+	}
+	return false
 }
