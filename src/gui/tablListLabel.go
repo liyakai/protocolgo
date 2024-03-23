@@ -16,14 +16,14 @@ type TableListLabel struct {
 	widget.Label
 	data      binding.String
 	app       *StApp
-	tabletype logic.TableType
+	tabletype logic.ETableType
 }
 
 // 单击事件
 func (m *TableListLabel) Tapped(e *fyne.PointEvent) {
 	// 处理单击事件
 	msg, _ := m.data.Get()
-	logrus.Info("Left click! Item: " + msg)
+	logrus.Info("Left click! Item: "+msg+",tabletype:", m.tabletype)
 }
 
 // 右击事件
@@ -66,5 +66,5 @@ func (m *TableListLabel) TappedSecondary(e *fyne.PointEvent) {
 func (m *TableListLabel) DoubleTapped(e *fyne.PointEvent) {
 	// 处理双击事件
 	msg, _ := m.data.Get()
-	logrus.Info("Double clicked! Item: " + msg)
+	logrus.Info("Double clicked! Item: "+msg+",tabletype:", m.tabletype)
 }

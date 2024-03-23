@@ -7,19 +7,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Enum 的一行数据
-type EditRowEnum struct {
-	EntryName  *widget.Entry
-	EntryIndex *widget.Entry
+// Unit 的一行数据
+type StRowUnit struct {
+	EntryIndex  *widget.Entry
+	EntryOption *widget.Select
+	EntryType   *widget.Entry
+	EntryName   *widget.Entry
 }
 
-// Enum 数据
-type EditEnum struct {
-	EnumName string
-	RowList  []EditRowEnum
+// Unit 数据
+type StUnit struct {
+	UnitName  string
+	TableType ETableType
+	RowList   []StRowUnit
 }
 
-func (editrow *EditRowEnum) RemoveElementFromSlice(s []EditRowEnum, elementToBeDeleted EditRowEnum) []EditRowEnum {
+func (editrow *StRowUnit) RemoveElementFromSlice(s []StRowUnit, elementToBeDeleted StRowUnit) []StRowUnit {
 	for i, element := range s {
 		// 使用适当的比较来确定哪一个元素应被删除
 		if element == elementToBeDeleted {
@@ -30,7 +33,7 @@ func (editrow *EditRowEnum) RemoveElementFromSlice(s []EditRowEnum, elementToBeD
 }
 
 // 检查字段名是否有相同的,或者有空的.
-func CheckEnumFieldNameList(rowList []EditRowEnum) bool {
+func CheckFieldNameList(rowList []StRowUnit) bool {
 	fieldValueNames := make([]string, len(rowList))
 	for i, row := range rowList {
 		if row.EntryName.Text == "" {
@@ -53,7 +56,7 @@ func CheckEnumFieldNameList(rowList []EditRowEnum) bool {
 }
 
 // 检查字段序列号是否有相同的,或者有空的.
-func CheckEnumFieldIndexList(rowList []EditRowEnum) bool {
+func CheckFieldIndexList(rowList []StRowUnit) bool {
 	fieldIndexes := make([]string, len(rowList))
 	for i, row := range rowList {
 		if row.EntryIndex.Text == "" {

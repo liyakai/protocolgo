@@ -32,6 +32,9 @@ type StApp struct {
 
 // 生成UI
 func (stapp *StApp) MakeUI() {
+	// 初始化管理器
+	stapp.CoreMgr.Init()
+
 	// 解决中文乱码
 	// stapp.SuitForChinese()
 	// 设置窗口大小
@@ -44,9 +47,6 @@ func (stapp *StApp) MakeUI() {
 	stapp.CreateMainContainer()
 	// 设置退出策略
 	stapp.SetOnClose()
-
-	// 初始化管理器
-	stapp.CoreMgr.Init()
 
 }
 
@@ -178,8 +178,8 @@ func (stapp *StApp) CreateMainContainer() {
 
 	// 创建下部的标签页容器
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Enum", stapp.CreateEnumTab()),
-		container.NewTabItem("Message", stapp.CreateMessageTab()),
+		container.NewTabItem("Enum", stapp.CreateTab(logic.TableType_Enum)),
+		container.NewTabItem("Message", stapp.CreateTab(logic.TableType_Message)),
 	)
 
 	// 使用垂直布局将上部和下部容器组合在一起
@@ -212,13 +212,10 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 	return topContainer
 }
 
-// 创建枚举页签
-func (stapp *StApp) CreateEnumTab() fyne.CanvasObject {
-	// 创建一个列表的数据源
-	stapp.CoreMgr.EnumTableList = binding.NewStringList()
-
+// 创建页签
+func (stapp *StApp) CreateTab(tabletype logic.ETableType) fyne.CanvasObject {
 	// 创建一个列表
-	list := widget.NewListWithData(stapp.CoreMgr.EnumTableList,
+	list := widget.NewListWithData(*stapp.CoreMgr.GetTableListByType(tabletype),
 		func() fyne.CanvasObject {
 			label := &TableListLabel{}
 			label.ExtendBaseWidget(label)
@@ -228,13 +225,13 @@ func (stapp *StApp) CreateEnumTab() fyne.CanvasObject {
 			o.(*TableListLabel).Bind(i.(binding.String))
 			o.(*TableListLabel).data = i.(binding.String)
 			o.(*TableListLabel).app = stapp
-			o.(*TableListLabel).tabletype = logic.TableType_Enum
+			o.(*TableListLabel).tabletype = tabletype
 		},
 	)
 
 	// 使用垂直布局将上部和下部容器组合在一起
 	buttonwithlist := container.NewBorder(
-		stapp.CreateEnumTabListInstruction(),
+		stapp.CreateTabListInstruction(tabletype),
 		nil,
 		nil,
 		nil,
@@ -244,290 +241,36 @@ func (stapp *StApp) CreateEnumTab() fyne.CanvasObject {
 	return buttonwithlist
 }
 
-// 创建Message页签
-func (stapp *StApp) CreateMessageTab() fyne.CanvasObject {
-	// 创建一个列表的数据源
-	stapp.CoreMgr.MessageTableList = binding.NewStringList()
-
-	// 创建一个列表
-	list := widget.NewListWithData(stapp.CoreMgr.MessageTableList,
-		func() fyne.CanvasObject {
-			label := &TableListLabel{}
-			label.ExtendBaseWidget(label)
-			return label
-		},
-		func(i binding.DataItem, o fyne.CanvasObject) {
-			o.(*TableListLabel).Bind(i.(binding.String))
-			o.(*TableListLabel).data = i.(binding.String)
-			o.(*TableListLabel).app = stapp
-			o.(*TableListLabel).tabletype = logic.TableType_Message
-		},
-	)
-
-	// 使用垂直布局将上部和下部容器组合在一起
-	buttonwithlist := container.NewBorder(
-		stapp.CreateMessageTabListInstruction(),
-		nil,
-		nil,
-		nil,
-		container.NewStack(list),
-	)
-
-	return buttonwithlist
-}
-
-// 创建枚举的list的说明和button
-func (stapp *StApp) CreateEnumTabListInstruction() fyne.CanvasObject {
-	label := widget.NewLabel("enum list:")
+// 创建list的说明和button
+func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.CanvasObject {
+	label := widget.NewLabel(stapp.CoreMgr.GetLableStingByType(tabletype))
 	button := widget.NewButton("Add new", func() {
 		// label.SetText("按钮被按下了!")
-		stapp.CreateNewEnumeUnit()
+		stapp.EditUnit(tabletype)
 		// stapp.CoreMgr.AddNewEnum("NewEnum")
 	})
 	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
 	topContainer := container.NewHSplit(container.NewStack(label), button)
 	topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
 	return topContainer
-}
-
-// 创建Message的list的说明和button
-func (stapp *StApp) CreateMessageTabListInstruction() fyne.CanvasObject {
-	label := widget.NewLabel("message list:")
-	button := widget.NewButton("Add new", func() {
-		// label.SetText("按钮被按下了!")
-		stapp.CreateNewMessageUnit()
-		// stapp.CoreMgr.AddNewEnum("NewEnum")
-	})
-	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
-	topContainer := container.NewHSplit(container.NewStack(label), button)
-	topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
-	return topContainer
-}
-
-// 检查 EditEnum
-func (stapp *StApp) CheckEditEnum(editMsg logic.EditEnum) bool {
-	// 检查 message name 的合法性
-	if editMsg.EnumName == "" || strings.Contains(editMsg.EnumName, " ") || utils.CheckPositiveInteger(editMsg.EnumName) || utils.CheckStartWithNum(editMsg.EnumName) {
-		logrus.Error("CheckEditEnum failed. EnumName: ", editMsg.EnumName)
-		dialog.ShowInformation("Error!", "The message name is invalid", *stapp.Window)
-		return false
-	}
-
-	for _, rowComponents := range editMsg.RowList {
-		// 检查 EntryIndex 的合法性
-		if rowComponents.EntryIndex.Text == "" || !utils.CheckPositiveInteger(rowComponents.EntryIndex.Text) {
-			logrus.Error("CheckEditMessage failed. EntryIndex: ", rowComponents.EntryIndex.Text)
-			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
-			return false
-		}
-
-	}
-
-	if !logic.CheckEnumFieldNameList(editMsg.RowList) {
-		dialog.ShowInformation("Error!", " The field name ara duplicate", *stapp.Window)
-		return false
-	}
-
-	if !logic.CheckEnumFieldIndexList(editMsg.RowList) {
-		dialog.ShowInformation("Error!", " The field index ara duplicate", *stapp.Window)
-		return false
-	}
-	return true
-}
-
-// 检查 EditMessage
-func (stapp *StApp) CheckEditMessage(editMsg logic.EditMessage) bool {
-	// 检查 message name 的合法性
-	if editMsg.MsgName == "" || strings.Contains(editMsg.MsgName, " ") || utils.CheckPositiveInteger(editMsg.MsgName) || utils.CheckStartWithNum(editMsg.MsgName) {
-		logrus.Error("CheckEditMessage failed. MsgName: ", editMsg.MsgName)
-		dialog.ShowInformation("Error!", "The message name is invalid", *stapp.Window)
-		return false
-	}
-
-	for _, rowComponents := range editMsg.RowList {
-		// 检查 EntryIndex 的合法性
-		if rowComponents.EntryIndex.Text == "" || !utils.CheckPositiveInteger(rowComponents.EntryIndex.Text) {
-			logrus.Error("CheckEditMessage failed. EntryIndex: ", rowComponents.EntryIndex.Text)
-			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
-			return false
-		}
-		// 检查 key 的合法性
-		if rowComponents.EntryKey.Text == "" || strings.Contains(rowComponents.EntryKey.Text, " ") {
-			logrus.Error("CheckEditMessage failed. EntryKey: ", rowComponents.EntryKey.Text)
-			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryKey is invalid", *stapp.Window)
-			return false
-		}
-		// 检查 value 的合法性
-		if rowComponents.EntryValue.Text == "" || strings.Contains(rowComponents.EntryValue.Text, " ") {
-			logrus.Error("CheckEditMessage failed. EntryValue: ", rowComponents.EntryValue.Text)
-			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryValue is invalid", *stapp.Window)
-			return false
-		}
-	}
-
-	if !logic.CheckMessageFieldNameList(editMsg.RowList) {
-		dialog.ShowInformation("Error!", " The field name ara duplicate", *stapp.Window)
-		return false
-	}
-
-	if !logic.CheckMessageFieldIndexList(editMsg.RowList) {
-		dialog.ShowInformation("Error!", " The field index ara duplicate", *stapp.Window)
-		return false
-	}
-	return true
-}
-
-// 创建新Enum的编辑页面
-func (stapp *StApp) CreateNewEnumeUnit() {
-	dialogContent := container.NewVBox()
-
-	customDialog := dialog.NewCustomWithoutButtons("Edit Enum", container.NewVScroll(dialogContent), *stapp.Window)
-	customDialog.Resize(fyne.NewSize(1500, 1100))
-	// 创建输入信息的容器
-	inputInfoContainer := container.NewVBox()
-	// 创建输入框
-	inputUnitName := widget.NewEntry()
-	inputUnitName.SetPlaceHolder("Enter Enum name...")
-	inputInfoContainer.Add(inputUnitName)
-
-	nEntryIndex := 0
-	// 在外部定义一个列表来保存每一行的组件
-	var rowList []logic.EditRowEnum
-
-	// 创建一个"Add" 按钮，点击后在VBox中添加新的Entry
-	attrBox := container.NewVBox()
-
-	// 增加字段
-	addButton := widget.NewButton("Add field", func() {
-		nEntryIndex = nEntryIndex + 1
-
-		entryIndex := widget.NewEntry()
-		entryIndex.SetText(strconv.Itoa(nEntryIndex))
-		entryName := widget.NewEntry()
-		entryName.SetPlaceHolder("Enter name...")
-
-		entryKeySelect := xwidget.NewCompletionEntry([]string{})
-		// 设置默认值
-		// When the use typed text, complete the list.
-		entryKeySelect.OnChanged = func(s string) {
-			// completion start for text length >= 3
-			if len(s) < 3 {
-				entryKeySelect.HideCompletion()
-				return
-			}
-
-			// Make a search on wikipedia
-			resp, err := http.Get(
-				"https://en.wikipedia.org/w/api.php?action=opensearch&search=" + entryKeySelect.Text,
-			)
-			if err != nil {
-				entryKeySelect.HideCompletion()
-				return
-			}
-
-			// Get the list of possible completion
-			var results [][]string
-			json.NewDecoder(resp.Body).Decode(&results)
-
-			// no results
-			if len(results) == 0 {
-				entryKeySelect.HideCompletion()
-				return
-			}
-
-			// then show them
-			entryKeySelect.SetOptions(results[1])
-			entryKeySelect.ShowCompletion()
-		}
-
-		oneRow := container.NewHSplit(entryName, entryIndex)
-		oneRow.Offset = 0.95
-
-		// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
-		editRow := logic.EditRowEnum{
-			EntryIndex: entryIndex,
-			EntryName:  entryName,
-		}
-		var deleteFunc func() // 声明删除操作函数
-		// 在每一行添加一个"删除"按钮
-		deleteButton := widget.NewButton("Delete", func() {
-			if deleteFunc != nil {
-				deleteFunc()
-			}
-		})
-		oneRowWithDeleteButton := container.NewHSplit(deleteButton, oneRow)
-		oneRowWithDeleteButton.Offset = 0.01
-
-		// 将删除操作定义为一个独立的函数
-		deleteFunc = func() {
-			// 从rowList和attrBox中移除该行
-			rowList = editRow.RemoveElementFromSlice(rowList, editRow)
-			attrBox.Remove(oneRowWithDeleteButton)
-			attrBox.Refresh()
-			customDialog.Refresh()
-		}
-
-		attrBox.Add(oneRowWithDeleteButton)
-		attrBox.Refresh()
-
-		rowList = append(rowList, editRow)
-
-	})
-
-	// 创建可以新增列的container
-	attrBoader := container.NewBorder(nil, nil, nil, addButton, attrBox)
-	inputInfoContainer.Add(attrBoader)
-
-	// 增加关闭,保存按钮
-	buttons := container.NewHBox(
-		// Cancel Button
-		widget.NewButton("Cancel", func() {
-			// Cancel logic goes here
-			customDialog.Hide()
-		}),
-		// Save Button
-		widget.NewButton("Save", func() {
-			// Save logic goes here
-			logrus.Info("[CreateNewEnum]Save. inputUnitName: " + inputUnitName.Text)
-
-			var editMsg logic.EditEnum
-			editMsg.EnumName = inputUnitName.Text
-			editMsg.RowList = rowList
-			if !stapp.CheckEditEnum(editMsg) {
-				logrus.Error("[CreateNewEnum] CheckEditMessage failed.")
-				return
-			}
-
-			if !stapp.CoreMgr.AddNewEnum(editMsg) {
-				logrus.Error("[CreateNewEnum] AddNewEnum failed.")
-				return
-			}
-
-			customDialog.Hide()
-		}),
-	)
-	inputInfoContainer.Add(container.NewCenter(buttons))
-	dialogContent.Add(inputInfoContainer)
-	customDialog.Show()
-
 }
 
 // 创建新Message的编辑页面
-func (stapp *StApp) CreateNewMessageUnit() {
+func (stapp *StApp) EditUnit(tabletype logic.ETableType) {
 	dialogContent := container.NewVBox()
 
-	customDialog := dialog.NewCustomWithoutButtons("Edit Message", container.NewVScroll(dialogContent), *stapp.Window)
+	customDialog := dialog.NewCustomWithoutButtons("Edit Unit", container.NewVScroll(dialogContent), *stapp.Window)
 	customDialog.Resize(fyne.NewSize(1500, 1100))
 	// 创建输入信息的容器
 	inputInfoContainer := container.NewVBox()
 	// 创建输入框
 	inputUnitName := widget.NewEntry()
-	inputUnitName.SetPlaceHolder("Enter Message name...")
+	inputUnitName.SetPlaceHolder("Enter name...")
 	inputInfoContainer.Add(inputUnitName)
 
 	nEntryIndex := 0
 	// 在外部定义一个列表来保存每一行的组件
-	var rowList []logic.EditRowMessage
+	var rowList []logic.StRowUnit
 
 	// 创建一个"Add" 按钮，点击后在VBox中添加新的Entry
 	attrBox := container.NewVBox()
@@ -535,14 +278,23 @@ func (stapp *StApp) CreateNewMessageUnit() {
 	// 增加字段
 	addButton := widget.NewButton("Add field", func() {
 		nEntryIndex = nEntryIndex + 1
-		selectEntryType := widget.NewSelect([]string{"optional", "repeated"}, nil)
-		selectEntryType.Selected = "optional"
+		var selectEntryType *widget.Select
+		var entryType *widget.Entry
+
+		if tabletype == logic.TableType_Message {
+			selectEntryType = widget.NewSelect([]string{"optional", "repeated"}, nil)
+			selectEntryType.Selected = "optional"
+
+			entryType = widget.NewEntry()
+			entryType.SetPlaceHolder("Enter type...")
+
+		}
+
+		entryName := widget.NewEntry()
+		entryName.SetPlaceHolder("Enter variable name...")
+
 		entryIndex := widget.NewEntry()
 		entryIndex.SetText(strconv.Itoa(nEntryIndex))
-		entryKey := widget.NewEntry()
-		entryKey.SetPlaceHolder("Enter type...")
-		entryValue := widget.NewEntry()
-		entryValue.SetPlaceHolder("Enter variable name...")
 
 		entryKeySelect := xwidget.NewCompletionEntry([]string{})
 		// 设置默认值
@@ -578,17 +330,23 @@ func (stapp *StApp) CreateNewMessageUnit() {
 			entryKeySelect.ShowCompletion()
 		}
 
-		oneRowInfo := container.NewHSplit(selectEntryType, container.NewHSplit(entryKey, entryValue))
-		oneRowInfo.Offset = 0.05
-		oneRow := container.NewHSplit(oneRowInfo, entryIndex)
-		oneRow.Offset = 0.95
+		var oneRow *container.Split
+		if tabletype == logic.TableType_Message {
+			oneRowInfo := container.NewHSplit(selectEntryType, container.NewHSplit(entryType, entryName))
+			oneRowInfo.Offset = 0.05
+			oneRow = container.NewHSplit(oneRowInfo, entryIndex)
+			oneRow.Offset = 0.95
+		} else if tabletype == logic.TableType_Enum {
+			oneRow = container.NewHSplit(entryName, entryIndex)
+			oneRow.Offset = 0.95
+		}
 
 		// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
-		editRow := logic.EditRowMessage{
-			EntryIndex: entryIndex,
-			EntryType:  selectEntryType,
-			EntryKey:   entryKey,
-			EntryValue: entryValue,
+		stRow := logic.StRowUnit{
+			EntryIndex:  entryIndex,
+			EntryOption: selectEntryType,
+			EntryType:   entryType,
+			EntryName:   entryName,
 		}
 		var deleteFunc func() // 声明删除操作函数
 		// 在每一行添加一个"删除"按钮
@@ -603,7 +361,7 @@ func (stapp *StApp) CreateNewMessageUnit() {
 		// 将删除操作定义为一个独立的函数
 		deleteFunc = func() {
 			// 从rowList和attrBox中移除该行
-			rowList = editRow.RemoveElementFromSlice(rowList, editRow)
+			rowList = stRow.RemoveElementFromSlice(rowList, stRow)
 			attrBox.Remove(oneRowWithDeleteButton)
 			attrBox.Refresh()
 			customDialog.Refresh()
@@ -611,9 +369,7 @@ func (stapp *StApp) CreateNewMessageUnit() {
 
 		attrBox.Add(oneRowWithDeleteButton)
 		attrBox.Refresh()
-
-		rowList = append(rowList, editRow)
-
+		rowList = append(rowList, stRow)
 	})
 
 	// 创建可以新增列的container
@@ -632,16 +388,17 @@ func (stapp *StApp) CreateNewMessageUnit() {
 			// Save logic goes here
 			logrus.Info("[CreateNewMessage]Save. inputUnitName: " + inputUnitName.Text)
 
-			var editMsg logic.EditMessage
-			editMsg.MsgName = inputUnitName.Text
-			editMsg.RowList = rowList
-			if !stapp.CheckEditMessage(editMsg) {
+			var stUnit logic.StUnit
+			stUnit.UnitName = inputUnitName.Text
+			stUnit.TableType = tabletype
+			stUnit.RowList = rowList
+			if !stapp.CheckStUnit(stUnit) {
 				logrus.Error("[CreateNewMessage] CheckEditMessage failed.")
 				return
 			}
 
-			if !stapp.CoreMgr.AddNewMessage(editMsg) {
-				logrus.Error("[CreateNewMessage] AddNewMessage failed.")
+			if !stapp.CoreMgr.AddNewUnit(stUnit) {
+				logrus.Error("[CreateNewMessage] AddNewUnit failed.")
 				return
 			}
 
@@ -652,4 +409,46 @@ func (stapp *StApp) CreateNewMessageUnit() {
 	dialogContent.Add(inputInfoContainer)
 	customDialog.Show()
 
+}
+
+// 检查 StUnit
+func (stapp *StApp) CheckStUnit(stUnit logic.StUnit) bool {
+	// 检查 message name 的合法性
+	if stUnit.UnitName == "" || strings.Contains(stUnit.UnitName, " ") || utils.CheckPositiveInteger(stUnit.UnitName) || utils.CheckStartWithNum(stUnit.UnitName) {
+		logrus.Error("CheckStUnit failed. MsgName: ", stUnit.UnitName)
+		dialog.ShowInformation("Error!", "The message name is invalid", *stapp.Window)
+		return false
+	}
+
+	for _, rowComponents := range stUnit.RowList {
+		// 检查 EntryIndex 的合法性
+		if rowComponents.EntryIndex != nil && (rowComponents.EntryIndex.Text == "" || !utils.CheckPositiveInteger(rowComponents.EntryIndex.Text)) {
+			logrus.Error("CheckStUnit failed. EntryIndex: ", rowComponents.EntryIndex.Text)
+			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
+			return false
+		}
+		// 检查 key 的合法性
+		if rowComponents.EntryType != nil && (rowComponents.EntryType.Text == "" || strings.Contains(rowComponents.EntryType.Text, " ")) {
+			logrus.Error("CheckStUnit failed. EntryType: ", rowComponents.EntryType.Text)
+			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryType is invalid", *stapp.Window)
+			return false
+		}
+		// 检查 value 的合法性
+		if rowComponents.EntryName != nil && (rowComponents.EntryName.Text == "" || strings.Contains(rowComponents.EntryName.Text, " ")) {
+			logrus.Error("CheckStUnit failed. EntryName: ", rowComponents.EntryName.Text)
+			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryName is invalid", *stapp.Window)
+			return false
+		}
+	}
+
+	if !logic.CheckFieldNameList(stUnit.RowList) {
+		dialog.ShowInformation("Error!", " The field name ara duplicate", *stapp.Window)
+		return false
+	}
+
+	if !logic.CheckFieldIndexList(stUnit.RowList) {
+		dialog.ShowInformation("Error!", " The field index ara duplicate", *stapp.Window)
+		return false
+	}
+	return true
 }

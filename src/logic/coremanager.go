@@ -11,10 +11,10 @@ import (
 )
 
 // 定义页签类型
-type TableType int
+type ETableType int
 
 const (
-	TableType_Enum TableType = iota + 1
+	TableType_Enum ETableType = iota + 1
 	TableType_Message
 )
 
@@ -26,8 +26,13 @@ type CoreManager struct {
 }
 
 func (Stapp *CoreManager) Init() {
+	// 创建一个列表的数据源
+	Stapp.EnumTableList = binding.NewStringList()
+	Stapp.MessageTableList = binding.NewStringList()
+
 	Stapp.XmlFilePath = utils.GetWorkRootPath() + "/data/protocolgo.xml"
 	Stapp.ReadXmlFromFile(Stapp.XmlFilePath)
+
 	logrus.Info("Init CoreManager done. xml file path:", Stapp.XmlFilePath)
 }
 
@@ -99,78 +104,58 @@ func (Stapp *CoreManager) SetCurrXmlFilePath(currFilePath string) {
 	logrus.Info("SetCurrXmlFilePath done.currFilePath:", currFilePath)
 }
 
-// 新增 Enum
-func (Stapp *CoreManager) AddNewEnum(editMsg EditEnum) bool {
+// 新增 StUnit
+func (Stapp *CoreManager) AddNewUnit(stUnit StUnit) bool {
 	if nil == Stapp.DocEtree {
-		logrus.Error("AddNewEnum failed. Stapp.DocEtree is nil, open the xml")
+		logrus.Error("AddNewUnit failed. Stapp.DocEtree is nil, open the xml")
 		return false
 	}
 
+	var strRoot string
+	if stUnit.TableType == TableType_Enum {
+		strRoot = "enum"
+	} else if stUnit.TableType == TableType_Message {
+		strRoot = "message"
+	} else {
+		strRoot = "other"
+	}
+
 	// 先查找是否有枚举的分类
-	msg_catagory := Stapp.DocEtree.FindElement("enum")
+	msg_catagory := Stapp.DocEtree.FindElement(strRoot)
 	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("enum")
+		msg_catagory = Stapp.DocEtree.CreateElement(strRoot)
 	}
 	// 在查找枚举中是否有对应的key
-	enum_unit := msg_catagory.FindElement(editMsg.EnumName)
+	enum_unit := msg_catagory.FindElement(stUnit.UnitName)
 	if enum_unit != nil {
-		logrus.Error("AddNewMessage failed. repeatted enum name. enumName:", editMsg.EnumName)
+		logrus.Error("AddNewUnit failed. repeatted enum name. enumName:", stUnit.UnitName)
 		return false
 	}
-	enum_unit = msg_catagory.CreateElement(editMsg.EnumName)
+	enum_unit = msg_catagory.CreateElement(stUnit.UnitName)
 	// elem_enum.CreateComment("Comment")
 	// enum_unit.CreateAttr("AttrKey", "AttrValue")
-	for _, row := range editMsg.RowList {
-		enum_atom := enum_unit.CreateElement(editMsg.EnumName)
+	for _, row := range stUnit.RowList {
+		enum_atom := enum_unit.CreateElement(stUnit.UnitName)
+		if row.EntryOption != nil {
+			enum_atom.CreateAttr("EntryOption", row.EntryOption.Selected)
+		}
+
+		if row.EntryType != nil {
+			enum_atom.CreateAttr("EntryType", row.EntryType.Text)
+		}
 		enum_atom.CreateAttr("EntryName", row.EntryName.Text)
-		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
-	}
-	// Stapp.EnumTableList.Append(editMsg.EnumName)
-	Stapp.SyncMessageListWithETree()
-
-	Stapp.SaveToXmlFile()
-	logrus.Info("AddNewMessage done. enumName:", editMsg.EnumName)
-	return true
-}
-
-// 新增Message
-func (Stapp *CoreManager) AddNewMessage(editMsg EditMessage) bool {
-	if nil == Stapp.DocEtree {
-		logrus.Error("AddNewMessage failed. Stapp.DocEtree is nil, open the xml")
-		return false
-	}
-
-	// 先查找是否有枚举的分类
-	msg_catagory := Stapp.DocEtree.FindElement("message")
-	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("message")
-	}
-	// 在查找枚举中是否有对应的key
-	enum_unit := msg_catagory.FindElement(editMsg.MsgName)
-	if enum_unit != nil {
-		logrus.Error("AddNewMessage failed. repeatted enum name. enumName:", editMsg.MsgName)
-		return false
-	}
-	enum_unit = msg_catagory.CreateElement(editMsg.MsgName)
-	// elem_enum.CreateComment("Comment")
-	// enum_unit.CreateAttr("AttrKey", "AttrValue")
-	for _, row := range editMsg.RowList {
-		enum_atom := enum_unit.CreateElement(editMsg.MsgName)
-		enum_atom.CreateAttr("EntryType", row.EntryType.Selected)
-		enum_atom.CreateAttr("EntryKey", row.EntryKey.Text)
-		enum_atom.CreateAttr("EntryValue", row.EntryValue.Text)
 		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
 	}
 	// Stapp.EnumTableList.Append(editMsg.MsgName)
 	Stapp.SyncMessageListWithETree()
 
 	Stapp.SaveToXmlFile()
-	logrus.Info("AddNewMessage done. enumName:", editMsg.MsgName)
+	logrus.Info("AddNewUnit done. enumName:", stUnit.UnitName)
 	return true
 }
 
 // 删除 enum/message 列表元素
-func (Stapp *CoreManager) DeleteCurrUnit(tableType TableType, rowName string) bool {
+func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) bool {
 
 	var strUnitType string
 	if tableType == TableType_Enum {
@@ -197,6 +182,26 @@ func (Stapp *CoreManager) DeleteCurrUnit(tableType TableType, rowName string) bo
 
 	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitType:", strUnitType, ", rowName:", rowName)
 	return false
+}
+
+func (Stapp *CoreManager) GetTableListByType(tabletype ETableType) *binding.StringList {
+	if tabletype == TableType_Enum {
+		logrus.Debug("GetTableListByType. tabletype:", tabletype)
+		return &Stapp.EnumTableList
+	} else {
+		logrus.Debug("GetTableListByType. tabletype:", tabletype)
+		return &Stapp.MessageTableList
+	}
+}
+
+func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
+	if tabletype == TableType_Enum {
+		logrus.Debug("GetLableStingByType. tabletype:", tabletype)
+		return "enum list:"
+	} else {
+		logrus.Debug("GetLableStingByType. tabletype:", tabletype)
+		return "message list:"
+	}
 }
 
 func (Stapp *CoreManager) SyncMessageListWithETree() bool {
@@ -229,6 +234,7 @@ func (Stapp *CoreManager) SyncMessageListWithETree() bool {
 	for _, child := range msg_catagory.ChildElements() {
 		newMessageListString = append(newMessageListString, child.Tag)
 	}
+
 	Stapp.MessageTableList.Set(newMessageListString)
 	logrus.Info("SyncListWithETree done.")
 	return true
