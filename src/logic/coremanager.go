@@ -145,6 +145,7 @@ func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
 		}
 		enum_atom.CreateAttr("EntryName", row.EntryName.Text)
 		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
+		enum_atom.CreateAttr("EntryComment", row.EntryComment.Text)
 	}
 	// Stapp.EnumTableList.Append(editMsg.MsgName)
 	Stapp.SyncMessageListWithETree()

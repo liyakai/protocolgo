@@ -311,12 +311,14 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 			entryOption.Selected = strRowUnit.EntryOption
 		}
 
+		// 输入框
 		// entryType = widget.NewEntry()
 		// entryType.SetPlaceHolder("Enter type...")
 		// if strRowUnit.EntryType != "" {
 		// 	entryType.SetText(strRowUnit.EntryType)
 		// }
 
+		// 搜索框
 		searchFields := stapp.CoreMgr.GetAllUseableEntryType()
 		entryTypeSelect = xwidget.NewCompletionEntry(searchFields)
 		// 设置默认值
@@ -341,26 +343,42 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		entryName.SetText(strRowUnit.EntryName)
 	}
 
+	entryComment := widget.NewEntry()
+	entryComment.SetPlaceHolder("Comment...")
+	if strRowUnit.EntryComment != "" {
+		entryComment.SetText(strRowUnit.EntryComment)
+	}
+
 	entryIndex := widget.NewEntry()
 	entryIndex.SetText(strRowUnit.EntryIndex)
 
 	var oneRow *container.Split
 	if tabletype == logic.TableType_Message {
-		oneRowInfo := container.NewHSplit(entryOption, container.NewHSplit(entryTypeSelect, entryName))
-		oneRowInfo.Offset = 0.05
-		oneRow = container.NewHSplit(oneRowInfo, entryIndex)
-		oneRow.Offset = 0.95
+		oneRowKeyValue := container.NewHSplit(entryTypeSelect, entryName)
+		oneRowKeyValue.Offset = 0.35
+
+		oneRowOptionKeyValue := container.NewHSplit(entryOption, oneRowKeyValue)
+		oneRowOptionKeyValue.Offset = 0.05
+
+		oneRowOptionKeyValueIndex := container.NewHSplit(oneRowOptionKeyValue, entryIndex)
+		oneRowOptionKeyValueIndex.Offset = 0.95
+
+		oneRow = container.NewHSplit(oneRowOptionKeyValueIndex, entryComment)
+		oneRow.Offset = 0.75
 	} else if tabletype == logic.TableType_Enum {
-		oneRow = container.NewHSplit(entryName, entryIndex)
-		oneRow.Offset = 0.95
+		oneRowNameIndex := container.NewHSplit(entryName, entryIndex)
+		oneRowNameIndex.Offset = 0.9
+		oneRow = container.NewHSplit(oneRowNameIndex, entryComment)
+		oneRow.Offset = 0.6
 	}
 
 	// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
 	stRow := logic.StRowUnit{
-		EntryIndex:  entryIndex,
-		EntryOption: entryOption,
-		EntryType:   entryTypeSelect,
-		EntryName:   entryName,
+		EntryIndex:   entryIndex,
+		EntryOption:  entryOption,
+		EntryType:    entryTypeSelect,
+		EntryName:    entryName,
+		EntryComment: entryComment,
 	}
 
 	var deleteFunc func() // 声明删除操作函数
@@ -436,6 +454,10 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 			entryName := child.SelectAttr("EntryName")
 			if entryName != nil {
 				rowUnit.EntryName = entryName.Value
+			}
+			entryContent := child.SelectAttr("EntryComment")
+			if entryContent != nil {
+				rowUnit.EntryComment = entryContent.Value
 			}
 			entryIndex := child.SelectAttr("EntryIndex")
 			if entryIndex != nil {

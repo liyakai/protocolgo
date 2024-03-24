@@ -13,15 +13,17 @@ type StRowUnit struct {
 	EntryIndex  *widget.Entry
 	EntryOption *widget.Select
 	// EntryType   *widget.Entry
-	EntryType *xwidget.CompletionEntry
-	EntryName *widget.Entry
+	EntryType    *xwidget.CompletionEntry
+	EntryName    *widget.Entry
+	EntryComment *widget.Entry
 }
 
 type StStrRowUnit struct {
-	EntryIndex  string
-	EntryOption string
-	EntryType   string
-	EntryName   string
+	EntryIndex   string
+	EntryOption  string
+	EntryType    string
+	EntryName    string
+	EntryComment string
 }
 
 // Unit 数据
