@@ -39,7 +39,7 @@ func (stapp *StApp) MakeUI() {
 	stapp.CoreMgr.Init()
 
 	// 解决中文乱码
-	// stapp.SuitForChinese()
+	stapp.SuitForChinese()
 	// 设置窗口大小
 	(*stapp.Window).Resize(fyne.NewSize(1200, 900))
 	// 设置主题
@@ -55,25 +55,34 @@ func (stapp *StApp) MakeUI() {
 
 // 解决中文乱码问题
 func (stapp *StApp) SuitForChinese() {
-	//设置中文字体
-	fontPath, err := findfont.Find("SIMFANG.TTF")
-	if err != nil {
-		panic(err)
-	}
-	logrus.Info("Found 'SIMFANG.ttf' in ", fontPath)
-
-	// load the font with the freetype library
-	// 原作者使用的ioutil.ReadFile已经弃用
+	// 先从workspace找字体
+	fontPath := utils.GetWorkRootPath() + "/data/localziti.ttf"
 	fontData, err := os.ReadFile(fontPath)
 	if err != nil {
-		panic(err)
+		//设置中文字体
+		fontPath, err = findfont.Find("SIMFANG.TTF")
+		if err != nil {
+			panic(err)
+		}
+		logrus.Info("Found 'SIMFANG.ttf' in ", fontPath)
+		// load the font with the freetype library
+		// 原作者使用的ioutil.ReadFile已经弃用
+		fontData, err = os.ReadFile(fontPath)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		logrus.Info("Found local fontPath:", fontPath)
 	}
+
 	_, err = truetype.Parse(fontData)
 	if err != nil {
 		panic(err)
 	}
+	logrus.Info("SuitForChinese before set env. fontPath:", fontPath)
 	os.Setenv("FYNE_FONT", fontPath)
 	os.Setenv("FYNE_FONT_MONOSPACE", fontPath)
+	logrus.Info("SuitForChinese done. fontPath:", fontPath)
 }
 
 // 自定义退出策略
