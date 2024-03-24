@@ -329,12 +329,14 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		// }
 
 		// 搜索框
-		searchFields := stapp.CoreMgr.GetAllUseableEntryType()
+		searchFields := stapp.CoreMgr.GetAllUseableEntryTypeWithProtoType()
 		entryTypeSelect = xwidget.NewCompletionEntry(searchFields)
 		// 设置默认值
 		// When the use typed text, complete the list.
 		entryTypeSelect.OnChanged = func(str string) {
-			// completion start for text length >= 3
+			if str == "" {
+				return
+			}
 			matches := fuzzy.RankFind(str, searchFields)
 			sort.Sort(matches)
 			var strMatches []string

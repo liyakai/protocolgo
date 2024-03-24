@@ -316,6 +316,12 @@ func (Stapp *CoreManager) GetAllUseableEntryType() []string {
 	return result
 }
 
+func (Stapp *CoreManager) GetAllUseableEntryTypeWithProtoType() []string {
+	result := Stapp.GetAllUseableEntryType()
+	result = append(result, "int32", "int64", "uint32", "uint64", "sint32", "sint64", "fixed32", "fixed64", "sfixed32", "sfixed64", "float", "double", "bool", "string", "bytes")
+	return result
+}
+
 func (Stapp *CoreManager) SyncTableListWithETree(name string) ETableType {
 	if Stapp.DocEtree == nil {
 		return TableType_None
