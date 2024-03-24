@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	"fyne.io/fyne/v2/widget"
+	"github.com/beevik/etree"
 	"github.com/flopp/go-findfont"
 	"github.com/goki/freetype/truetype"
 	"github.com/sirupsen/logrus"
@@ -430,6 +431,19 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 		inputUnitName.Disable()
 	}
 	inputInfoContainer.Add(inputUnitName)
+	// 注释
+	inputUnitComment := widget.NewEntry()
+	inputUnitComment.SetPlaceHolder("Enter Comment...")
+	inputInfoContainer.Add(inputUnitComment)
+	if !bCreateNew {
+		for _, child := range etreeRow.Child {
+			// 检查该子元素是否为注释
+			if comment, ok := child.(*etree.Comment); ok {
+				inputUnitComment.SetText(comment.Data)
+				break
+			}
+		}
+	}
 
 	nEntryIndex := 0
 	// 在外部定义一个列表来保存每一行的组件
@@ -498,6 +512,7 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 
 			var stUnit logic.StUnit
 			stUnit.UnitName = inputUnitName.Text
+			stUnit.UnitComment = inputUnitComment.Text
 			stUnit.TableType = tabletype
 			stUnit.RowList = rowList
 			if !stapp.CheckStUnit(stUnit, bCreateNew) {

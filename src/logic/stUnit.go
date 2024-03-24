@@ -28,9 +28,10 @@ type StStrRowUnit struct {
 
 // Unit 数据
 type StUnit struct {
-	UnitName  string
-	TableType ETableType
-	RowList   []StRowUnit
+	UnitName    string
+	UnitComment string
+	TableType   ETableType
+	RowList     []StRowUnit
 }
 
 func (editrow *StRowUnit) RemoveElementFromSlice(s []StRowUnit, elementToBeDeleted StRowUnit) []StRowUnit {

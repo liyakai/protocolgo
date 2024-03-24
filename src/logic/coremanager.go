@@ -127,15 +127,14 @@ func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
 		msg_catagory = Stapp.DocEtree.CreateElement(strRoot)
 	}
 	// 在查找枚举中是否有对应的key
-	enum_unit := msg_catagory.FindElement(stUnit.UnitName)
-	if enum_unit != nil {
+	unit := msg_catagory.FindElement(stUnit.UnitName)
+	if unit != nil {
 		msg_catagory.RemoveChild(msg_catagory.SelectElement(stUnit.UnitName))
 	}
-	enum_unit = msg_catagory.CreateElement(stUnit.UnitName)
-	// elem_enum.CreateComment("Comment")
-	// enum_unit.CreateAttr("AttrKey", "AttrValue")
+	unit = msg_catagory.CreateElement(stUnit.UnitName)
+	unit.CreateComment(stUnit.UnitComment)
 	for _, row := range stUnit.RowList {
-		enum_atom := enum_unit.CreateElement(stUnit.UnitName)
+		enum_atom := unit.CreateElement(stUnit.UnitName)
 		if row.EntryOption != nil {
 			enum_atom.CreateAttr("EntryOption", row.EntryOption.Selected)
 		}
