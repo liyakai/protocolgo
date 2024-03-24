@@ -521,7 +521,7 @@ func (stapp *StApp) CheckStUnit(stUnit logic.StUnit, bCreateNew bool) bool {
 			return false
 		}
 		// 检查 类型 的合法性
-		if rowComponents.EntryType != nil && (rowComponents.EntryType.Text == "" || strings.Contains(rowComponents.EntryType.Text, " ") || utils.CheckPositiveInteger(rowComponents.EntryType.Text) || utils.CheckStartWithNum(rowComponents.EntryType.Text)) {
+		if rowComponents.EntryType != nil && (rowComponents.EntryType.Text == "" || strings.Contains(rowComponents.EntryType.Text, " ") || rowComponents.EntryType.Text == stUnit.UnitName || utils.CheckPositiveInteger(rowComponents.EntryType.Text) || utils.CheckStartWithNum(rowComponents.EntryType.Text)) {
 			logrus.Error("CheckStUnit failed. EntryType: ", rowComponents.EntryType.Text)
 			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryType is invalid", *stapp.Window)
 			return false
