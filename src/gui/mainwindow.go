@@ -5,6 +5,7 @@ import (
 	"os"
 	"protocolgo/src/logic"
 	"protocolgo/src/utils"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -19,12 +20,16 @@ import (
 	"github.com/flopp/go-findfont"
 	"github.com/goki/freetype/truetype"
 	"github.com/sirupsen/logrus"
+
+	xwidget "fyne.io/x/fyne/widget"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 type StApp struct {
 	App     *fyne.App
 	Window  *fyne.Window      // 主窗口.
 	CoreMgr logic.CoreManager // 管理器
+	tables  *container.AppTabs
 }
 
 // 生成UI
@@ -174,7 +179,7 @@ func (stapp *StApp) CreateMainContainer() {
 	topContainer := stapp.CreateTopSearchContainer()
 
 	// 创建下部的标签页容器
-	tabs := container.NewAppTabs(
+	stapp.tables = container.NewAppTabs(
 		container.NewTabItem("Enum", stapp.CreateTab(logic.TableType_Enum)),
 		container.NewTabItem("Message", stapp.CreateTab(logic.TableType_Message)),
 	)
@@ -185,7 +190,7 @@ func (stapp *StApp) CreateMainContainer() {
 		nil,
 		nil,
 		nil,
-		container.NewStack(tabs),
+		container.NewStack(stapp.tables),
 	)
 	(*stapp.Window).SetContent(mainContainer)
 }
@@ -193,19 +198,60 @@ func (stapp *StApp) CreateMainContainer() {
 // 创建搜索框的内容
 func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 	// 创建一个输入框作为搜索框
-	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Search here")
+	// searchEntry := widget.NewEntry()
+	// searchEntry.SetPlaceHolder("Search here")
 
-	searchButton := widget.NewButton("Search", func() {
-		// 在这里添加搜索按钮点击后的逻辑，例如打印输入的搜索内容
-		input := searchEntry.Text
-		// 逻辑处理处
-		// fyne.LogInfo("You have searched for:", input)
-		logrus.Info("You have searched for:", input)
-	})
+	// searchButton := widget.NewButton("Search", func() {
+	// 	// 在这里添加搜索按钮点击后的逻辑，例如打印输入的搜索内容
+	// 	input := searchEntry.Text
+	// 	// 逻辑处理处
+	// 	// fyne.LogInfo("You have searched for:", input)
+	// 	logrus.Info("You have searched for:", input)
+	// })
+	searchFields := stapp.CoreMgr.GetAllUseableEntryType()
+	searchEntry := xwidget.NewCompletionEntry(searchFields)
+	searchEntry.SetPlaceHolder("Search here")
+	// 设置默认值
+	// When the use typed text, complete the list.
+	searchEntry.OnChanged = func(str string) {
+		logrus.Debug("[CreateTopSearchContainer] OnChanged str:", str)
+		if str != "" {
+			matches := fuzzy.RankFind(str, searchFields)
+			sort.Sort(matches)
+			var strMatches []string
+			for _, matchone := range matches {
+				strMatches = append(strMatches, matchone.Target)
+			}
+			searchEntry.SetOptions(strMatches)
+			// 设置焦点
+			eTableType := stapp.CoreMgr.SyncTableListWithETree(str)
+			logrus.Debug("[CreateTopSearchContainer] Forcuse table eTableType:", eTableType)
+			if eTableType == logic.TableType_Enum {
+				stapp.tables.SelectIndex(0)
+			} else if eTableType == logic.TableType_Message {
+				stapp.tables.SelectIndex(1)
+			}
+			searchEntry.ShowCompletion()
+		} else {
+			stapp.CoreMgr.SyncMessageListWithETree()
+		}
+
+	}
+	searchEntry.OnSubmitted = func(str string) {
+		// 设置焦点
+		eTableType := stapp.CoreMgr.SyncTableListWithETree(str)
+		logrus.Debug("[CreateTopSearchContainer] Forcuse table eTableType:", eTableType)
+		if eTableType == logic.TableType_Enum {
+			stapp.tables.SelectIndex(0)
+		} else if eTableType == logic.TableType_Message {
+			stapp.tables.SelectIndex(1)
+		}
+	}
+
 	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
-	topContainer := container.NewHSplit(container.NewStack(searchEntry), searchButton)
-	topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
+	// topContainer := container.NewHSplit(container.NewStack(searchEntry), searchButton)
+	// topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
+	topContainer := container.NewStack(searchEntry)
 	return topContainer
 }
 
@@ -253,21 +299,38 @@ func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.Ca
 }
 
 func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit logic.StStrRowUnit, attrBox *fyne.Container, rowList *[]logic.StRowUnit) {
-	var selectEntryType *widget.Select
-	var entryType *widget.Entry
+	var entryOption *widget.Select
+	// var entryType *widget.Entry
+	var entryTypeSelect *xwidget.CompletionEntry
 
 	if tabletype == logic.TableType_Message {
-		selectEntryType = widget.NewSelect([]string{"optional", "repeated"}, nil)
+		entryOption = widget.NewSelect([]string{"optional", "repeated"}, nil)
 		if strRowUnit.EntryOption == "" {
-			selectEntryType.Selected = "optional"
+			entryOption.Selected = "optional"
 		} else {
-			selectEntryType.Selected = strRowUnit.EntryOption
+			entryOption.Selected = strRowUnit.EntryOption
 		}
 
-		entryType = widget.NewEntry()
-		entryType.SetPlaceHolder("Enter type...")
-		if strRowUnit.EntryType != "" {
-			entryType.SetText(strRowUnit.EntryType)
+		// entryType = widget.NewEntry()
+		// entryType.SetPlaceHolder("Enter type...")
+		// if strRowUnit.EntryType != "" {
+		// 	entryType.SetText(strRowUnit.EntryType)
+		// }
+
+		searchFields := stapp.CoreMgr.GetAllUseableEntryType()
+		entryTypeSelect = xwidget.NewCompletionEntry(searchFields)
+		// 设置默认值
+		// When the use typed text, complete the list.
+		entryTypeSelect.OnChanged = func(str string) {
+			// completion start for text length >= 3
+			matches := fuzzy.RankFind(str, searchFields)
+			sort.Sort(matches)
+			var strMatches []string
+			for _, matchone := range matches {
+				strMatches = append(strMatches, matchone.Target)
+			}
+			entryTypeSelect.SetOptions(strMatches)
+			entryTypeSelect.ShowCompletion()
 		}
 
 	}
@@ -283,7 +346,7 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 
 	var oneRow *container.Split
 	if tabletype == logic.TableType_Message {
-		oneRowInfo := container.NewHSplit(selectEntryType, container.NewHSplit(entryType, entryName))
+		oneRowInfo := container.NewHSplit(entryOption, container.NewHSplit(entryTypeSelect, entryName))
 		oneRowInfo.Offset = 0.05
 		oneRow = container.NewHSplit(oneRowInfo, entryIndex)
 		oneRow.Offset = 0.95
@@ -295,8 +358,8 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 	// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
 	stRow := logic.StRowUnit{
 		EntryIndex:  entryIndex,
-		EntryOption: selectEntryType,
-		EntryType:   entryType,
+		EntryOption: entryOption,
+		EntryType:   entryTypeSelect,
 		EntryName:   entryName,
 	}
 
@@ -327,7 +390,7 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 // 创建新Message的编辑页面
 func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	dialogContent := container.NewVBox()
-	customDialog := dialog.NewCustomWithoutButtons("Edit Unit", container.NewVScroll(dialogContent), *stapp.Window)
+	customDialog := dialog.NewCustomWithoutButtons(stapp.CoreMgr.GetEditTableTitle(tabletype), container.NewVScroll(dialogContent), *stapp.Window)
 	customDialog.Resize(fyne.NewSize(1100, 800))
 	bCreateNew := false // 是否是新的节点
 	etreeRow := stapp.CoreMgr.GetEtreeElem(tabletype, unitname)

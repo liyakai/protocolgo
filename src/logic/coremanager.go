@@ -14,7 +14,8 @@ import (
 type ETableType int
 
 const (
-	TableType_Enum ETableType = iota + 1
+	TableType_None ETableType = iota + 1
+	TableType_Enum
 	TableType_Message
 )
 
@@ -204,6 +205,14 @@ func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
 	}
 }
 
+func (Stapp *CoreManager) GetEditTableTitle(tabletype ETableType) string {
+	if tabletype == TableType_Enum {
+		return "Edit Enum"
+	} else {
+		return "Edit Message"
+	}
+}
+
 func (Stapp *CoreManager) GetEtreeElem(tabletype ETableType, rowName string) *etree.Element {
 	strUnitName := Stapp.GetEtreeRootName(tabletype)
 	// 先查找是否有枚举的分类
@@ -278,8 +287,65 @@ func (Stapp *CoreManager) CheckExistSameName(name string) bool {
 	}
 	// 查找 message 名字
 	msg_uint := msg_catagory.FindElement(name)
-	if msg_uint != nil {
-		return true
+	return msg_uint != nil
+}
+
+func (Stapp *CoreManager) GetAllUseableEntryType() []string {
+	result := []string{}
+	// 先查找是否有 enum 的分类
+	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	if enum_catagory == nil {
+		enum_catagory = Stapp.DocEtree.CreateElement("enum")
 	}
-	return false
+
+	// 遍历子元素
+	for _, child := range enum_catagory.ChildElements() {
+		result = append(result, child.Tag)
+	}
+
+	// 先查找是否有message的分类
+	msg_catagory := Stapp.DocEtree.FindElement("message")
+	if msg_catagory == nil {
+		msg_catagory = Stapp.DocEtree.CreateElement("message")
+	}
+
+	// 遍历子元素
+	for _, child := range msg_catagory.ChildElements() {
+		result = append(result, child.Tag)
+	}
+	return result
+}
+
+func (Stapp *CoreManager) SyncTableListWithETree(name string) ETableType {
+	if Stapp.DocEtree == nil {
+		return TableType_None
+	}
+	if name == "" {
+		return TableType_None
+	}
+	Stapp.SyncMessageListWithETree()
+
+	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	if enum_catagory == nil {
+		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+	}
+	// 查找 enum 名字
+	enum_uint := enum_catagory.FindElement(name)
+	if enum_uint != nil {
+		Stapp.EnumTableList.Set([]string{name})
+		return TableType_Enum
+	}
+
+	msg_catagory := Stapp.DocEtree.FindElement("message")
+	if msg_catagory == nil {
+		msg_catagory = Stapp.DocEtree.CreateElement("message")
+	}
+	// 查找 message 名字
+	msg_uint := msg_catagory.FindElement(name)
+	if msg_uint != nil {
+		Stapp.MessageTableList.Set([]string{name})
+		return TableType_Message
+	}
+	return TableType_None
+
 }

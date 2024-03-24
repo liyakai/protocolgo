@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"fyne.io/fyne/v2/widget"
+	xwidget "fyne.io/x/fyne/widget"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,8 +12,9 @@ import (
 type StRowUnit struct {
 	EntryIndex  *widget.Entry
 	EntryOption *widget.Select
-	EntryType   *widget.Entry
-	EntryName   *widget.Entry
+	// EntryType   *widget.Entry
+	EntryType *xwidget.CompletionEntry
+	EntryName *widget.Entry
 }
 
 type StStrRowUnit struct {
