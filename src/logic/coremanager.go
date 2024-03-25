@@ -2,6 +2,7 @@ package logic
 
 import (
 	"io"
+	"strings"
 
 	"protocolgo/src/utils"
 
@@ -24,6 +25,8 @@ type CoreManager struct {
 	XmlFilePath      string             // 打开的Xml文件路径
 	EnumTableList    binding.StringList // enum 数据源
 	MessageTableList binding.StringList // message 数据源
+	SearchMap        map[string]string  // 所有可搜索元素到列表名字的映射
+	SearchBuffer     []string           // 所有可所有元素列表
 }
 
 func (Stapp *CoreManager) Init() {
@@ -60,7 +63,7 @@ func (Stapp *CoreManager) ReadXmlFromReader(reader io.Reader) {
 		logrus.Error("ReadXmlFromReader failed. err:", err)
 		panic(err)
 	}
-	Stapp.SyncMessageListWithETree()
+	Stapp.SyncListWithETree()
 	logrus.Info("ReadXmlFromReader done.")
 }
 
@@ -74,7 +77,7 @@ func (Stapp *CoreManager) ReadXmlFromFile(filename string) {
 		logrus.Error("ReadXmlFromFile failed. err:", err)
 		panic(err)
 	}
-	Stapp.SyncMessageListWithETree()
+	Stapp.SyncListWithETree()
 	logrus.Info("ReadXmlFromFile done.")
 }
 
@@ -147,7 +150,7 @@ func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
 		enum_atom.CreateAttr("EntryComment", row.EntryComment.Text)
 	}
 	// Stapp.EnumTableList.Append(editMsg.MsgName)
-	Stapp.SyncMessageListWithETree()
+	Stapp.SyncListWithETree()
 
 	Stapp.SaveToXmlFile()
 	logrus.Info("EditUnit done. enumName:", stUnit.UnitName)
@@ -183,7 +186,7 @@ func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) b
 	}
 	catagory.RemoveChild(catagory.SelectElement(rowName))
 
-	Stapp.SyncMessageListWithETree()
+	Stapp.SyncListWithETree()
 
 	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 	return false
@@ -230,7 +233,7 @@ func (Stapp *CoreManager) GetEtreeElem(tabletype ETableType, rowName string) *et
 	return unit
 }
 
-func (Stapp *CoreManager) SyncMessageListWithETree() bool {
+func (Stapp *CoreManager) SyncListWithETree() bool {
 	if nil == Stapp.DocEtree {
 		logrus.Error("SyncListWithETree failed. Stapp.DocEtree is nil, open the xml")
 		return false
@@ -242,10 +245,41 @@ func (Stapp *CoreManager) SyncMessageListWithETree() bool {
 		enum_catagory = Stapp.DocEtree.CreateElement("enum")
 	}
 	newEnumListString := []string{}
-
+	Stapp.SearchMap = map[string]string{}
 	// 遍历子元素
-	for _, child := range enum_catagory.ChildElements() {
-		newEnumListString = append(newEnumListString, child.Tag)
+	for _, EnumClass := range enum_catagory.ChildElements() {
+		newEnumListString = append(newEnumListString, EnumClass.Tag)
+		// 枚举类名字映射
+		Stapp.SearchMap[EnumClass.Tag] = EnumClass.Tag
+		Stapp.SearchMap[strings.ToLower(EnumClass.Tag)] = EnumClass.Tag
+		Stapp.SearchMap[strings.ToUpper(EnumClass.Tag)] = EnumClass.Tag
+		// 将注释映射
+		for _, child := range EnumClass.Child {
+			// 检查该子元素是否为注释
+			if comment, ok := child.(*etree.Comment); ok {
+				Stapp.SearchMap[comment.Data] = EnumClass.Tag
+				Stapp.SearchMap[strings.ToLower(comment.Data)] = EnumClass.Tag
+				Stapp.SearchMap[strings.ToUpper(comment.Data)] = EnumClass.Tag
+				break
+			}
+		}
+		for _, EnumClassConent := range EnumClass.ChildElements() {
+			entryName := EnumClassConent.SelectAttr("EntryName")
+			if entryName != nil && entryName.Value != "" {
+				Stapp.SearchMap[entryName.Value] = EnumClass.Tag
+				Stapp.SearchMap[strings.ToLower(entryName.Value)] = EnumClass.Tag
+				Stapp.SearchMap[strings.ToUpper(entryName.Value)] = EnumClass.Tag
+				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
+			}
+			entryComment := EnumClassConent.SelectAttr("EntryComment")
+			if entryComment != nil && entryComment.Value != "" {
+				Stapp.SearchMap[entryComment.Value] = EnumClass.Tag
+				Stapp.SearchMap[strings.ToLower(entryComment.Value)] = EnumClass.Tag
+				Stapp.SearchMap[strings.ToUpper(entryComment.Value)] = EnumClass.Tag
+				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
+			}
+		}
+
 	}
 	Stapp.EnumTableList.Set(newEnumListString)
 
@@ -257,11 +291,47 @@ func (Stapp *CoreManager) SyncMessageListWithETree() bool {
 	newMessageListString := []string{}
 
 	// 遍历子元素
-	for _, child := range msg_catagory.ChildElements() {
-		newMessageListString = append(newMessageListString, child.Tag)
+	for _, MsgClass := range msg_catagory.ChildElements() {
+		newMessageListString = append(newMessageListString, MsgClass.Tag)
+		// 枚举类名字映射
+		Stapp.SearchMap[MsgClass.Tag] = MsgClass.Tag
+		Stapp.SearchMap[strings.ToLower(MsgClass.Tag)] = MsgClass.Tag
+		Stapp.SearchMap[strings.ToUpper(MsgClass.Tag)] = MsgClass.Tag
+		// 将注释映射
+		for _, child := range MsgClass.Child {
+			// 检查该子元素是否为注释
+			if comment, ok := child.(*etree.Comment); ok {
+				Stapp.SearchMap[comment.Data] = MsgClass.Tag
+				Stapp.SearchMap[strings.ToLower(comment.Data)] = MsgClass.Tag
+				Stapp.SearchMap[strings.ToUpper(comment.Data)] = MsgClass.Tag
+				break
+			}
+		}
+		for _, MsgClassConent := range MsgClass.ChildElements() {
+			entryName := MsgClassConent.SelectAttr("EntryName")
+			if entryName != nil && entryName.Value != "" {
+				Stapp.SearchMap[entryName.Value] = MsgClass.Tag
+				Stapp.SearchMap[strings.ToLower(entryName.Value)] = MsgClass.Tag
+				Stapp.SearchMap[strings.ToUpper(entryName.Value)] = MsgClass.Tag
+				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
+			}
+			entryComment := MsgClassConent.SelectAttr("EntryComment")
+			if entryComment != nil && entryComment.Value != "" {
+				Stapp.SearchMap[entryComment.Value] = MsgClass.Tag
+				Stapp.SearchMap[strings.ToLower(entryComment.Value)] = MsgClass.Tag
+				Stapp.SearchMap[strings.ToUpper(entryComment.Value)] = MsgClass.Tag
+				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
+			}
+		}
+	}
+	Stapp.MessageTableList.Set(newMessageListString)
+
+	Stapp.SearchBuffer = []string{}
+	for key, _ := range Stapp.SearchMap {
+		Stapp.SearchBuffer = append(Stapp.SearchBuffer, key)
+		// logrus.Debug("SyncListWithETree key:", key)
 	}
 
-	Stapp.MessageTableList.Set(newMessageListString)
 	logrus.Info("SyncListWithETree done.")
 	return true
 }
@@ -288,6 +358,17 @@ func (Stapp *CoreManager) CheckExistSameName(name string) bool {
 	// 查找 message 名字
 	msg_uint := msg_catagory.FindElement(name)
 	return msg_uint != nil
+}
+
+func (Stapp *CoreManager) GetAllSearchName() []string {
+	// for _, name := range Stapp.SearchBuffer {
+	// 	logrus.Debug("GetAllSearchName SearchBuffer name:", name)
+	// }
+	return Stapp.SearchBuffer
+}
+
+func (Stapp *CoreManager) GetListNameBySearchName(searchname string) string {
+	return Stapp.SearchMap[searchname]
 }
 
 func (Stapp *CoreManager) GetAllUseableEntryType() []string {
@@ -322,14 +403,14 @@ func (Stapp *CoreManager) GetAllUseableEntryTypeWithProtoType() []string {
 	return result
 }
 
-func (Stapp *CoreManager) SyncTableListWithETree(name string) ETableType {
+func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 	if Stapp.DocEtree == nil {
 		return TableType_None
 	}
 	if name == "" {
 		return TableType_None
 	}
-	Stapp.SyncMessageListWithETree()
+	// Stapp.SyncListWithETree()
 
 	enum_catagory := Stapp.DocEtree.FindElement("enum")
 	if enum_catagory == nil {

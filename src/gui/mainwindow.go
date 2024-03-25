@@ -235,15 +235,14 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 	// 	// fyne.LogInfo("You have searched for:", input)
 	// 	logrus.Info("You have searched for:", input)
 	// })
-	searchFields := stapp.CoreMgr.GetAllUseableEntryType()
+	searchFields := stapp.CoreMgr.GetAllSearchName()
 	searchEntry := xwidget.NewCompletionEntry(searchFields)
 	searchEntry.SetPlaceHolder("Search here")
 	// 设置默认值
 	// When the use typed text, complete the list.
 	searchEntry.OnChanged = func(str string) {
-		logrus.Debug("[CreateTopSearchContainer] OnChanged str:", str)
 		if str != "" {
-			matches := fuzzy.RankFind(str, searchFields)
+			matches := fuzzy.RankFind(str, stapp.CoreMgr.GetAllSearchName())
 			sort.Sort(matches)
 			var strMatches []string
 			for _, matchone := range matches {
@@ -251,23 +250,25 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 			}
 			searchEntry.SetOptions(strMatches)
 			// 设置焦点
-			eTableType := stapp.CoreMgr.SyncTableListWithETree(str)
-			logrus.Debug("[CreateTopSearchContainer] Forcuse table eTableType:", eTableType)
-			if eTableType == logic.TableType_Enum {
-				stapp.tables.SelectIndex(0)
-			} else if eTableType == logic.TableType_Message {
-				stapp.tables.SelectIndex(1)
+			strEntryName := stapp.CoreMgr.GetListNameBySearchName(str)
+			if strEntryName != "" {
+				eTableType := stapp.CoreMgr.SearchTableListWithName(strEntryName)
+				if eTableType == logic.TableType_Enum {
+					stapp.tables.SelectIndex(0)
+				} else if eTableType == logic.TableType_Message {
+					stapp.tables.SelectIndex(1)
+				}
 			}
 			searchEntry.ShowCompletion()
+
 		} else {
-			stapp.CoreMgr.SyncMessageListWithETree()
+			stapp.CoreMgr.SyncListWithETree()
 		}
 
 	}
 	searchEntry.OnSubmitted = func(str string) {
 		// 设置焦点
-		eTableType := stapp.CoreMgr.SyncTableListWithETree(str)
-		logrus.Debug("[CreateTopSearchContainer] Forcuse table eTableType:", eTableType)
+		eTableType := stapp.CoreMgr.SearchTableListWithName(str)
 		if eTableType == logic.TableType_Enum {
 			stapp.tables.SelectIndex(0)
 		} else if eTableType == logic.TableType_Message {

@@ -23,7 +23,7 @@ func InitMainWindow() {
 	app.CoreMgr = logic.CoreManager{}
 
 	// 初始化日志
-	utils.InitLogger(*flag.String("loglevel", "info", "sets log level. trace/debug/info/warn/error/fatal/panic"))
+	utils.InitLogger(*flag.String("loglevel", "debug", "sets log level. trace/debug/info/warn/error/fatal/panic"))
 
 	app.MakeUI()
 
