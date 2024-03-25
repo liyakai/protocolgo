@@ -40,6 +40,8 @@ func (stapp *StApp) MakeUI() {
 
 	// 解决中文乱码
 	stapp.SuitForChinese()
+	// 设置图标
+	stapp.SetIcon()
 	// 设置窗口大小
 	(*stapp.Window).Resize(fyne.NewSize(1200, 900))
 	// 设置主题
@@ -83,6 +85,20 @@ func (stapp *StApp) SuitForChinese() {
 	os.Setenv("FYNE_FONT", fontPath)
 	os.Setenv("FYNE_FONT_MONOSPACE", fontPath)
 	logrus.Info("SuitForChinese done. fontPath:", fontPath)
+}
+
+// 设置图标
+func (stapp *StApp) SetIcon() {
+	iconPath := utils.GetWorkRootPath() + "/icon/protobuf.png"
+	// 读取图标文件
+	bytes, err := os.ReadFile(iconPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	icon := fyne.NewStaticResource("Icon", bytes)
+	(*stapp.Window).SetIcon(icon)
+	(*stapp.App).SetIcon(icon)
+	logrus.Error("SetIcon done. iconPath:", iconPath)
 }
 
 // 自定义退出策略
