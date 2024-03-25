@@ -13,10 +13,11 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
-
 	"fyne.io/fyne/v2/widget"
+
 	"github.com/beevik/etree"
 	"github.com/flopp/go-findfont"
 	"github.com/goki/freetype/truetype"
@@ -273,6 +274,14 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 			stapp.tables.SelectIndex(1)
 		}
 	}
+
+	// 添加快捷键,Ctrl+f 聚焦搜索栏
+	(*stapp.Window).Canvas().AddShortcut(&desktop.CustomShortcut{
+		KeyName:  fyne.KeyF,
+		Modifier: fyne.KeyModifierControl,
+	}, func(shortcut fyne.Shortcut) {
+		(*stapp.Window).Canvas().Focus(searchEntry)
+	})
 
 	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
 	// topContainer := container.NewHSplit(container.NewStack(searchEntry), searchButton)
@@ -558,6 +567,16 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 
 	inputInfoContainer.Add(container.NewCenter(buttons))
 	dialogContent.Add(inputInfoContainer)
+
+	// 创建退出快捷键
+	(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+		// 在这里检查按下的是不是 Esc 键
+		if ke.Name == fyne.KeyEscape {
+			// 如果是 Esc 键，隐藏自定义对话框
+			customDialog.Hide()
+		}
+	})
+
 	customDialog.Show()
 }
 
