@@ -358,6 +358,10 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		searchFields := stapp.CoreMgr.GetAllUseableEntryTypeWithProtoType()
 		entryTypeSelect = xwidget.NewCompletionEntry(searchFields)
 		// 设置默认值
+		entryTypeSelect.SetPlaceHolder("Enter filed type...")
+		if strRowUnit.EntryType != "" {
+			entryTypeSelect.SetText(strRowUnit.EntryType)
+		}
 		// When the use typed text, complete the list.
 		entryTypeSelect.OnChanged = func(str string) {
 			if str == "" {
