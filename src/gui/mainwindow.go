@@ -23,7 +23,6 @@ import (
 	"github.com/goki/freetype/truetype"
 	"github.com/sirupsen/logrus"
 
-	xwidget "fyne.io/x/fyne/widget"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
@@ -236,7 +235,7 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 	// 	logrus.Info("You have searched for:", input)
 	// })
 	searchFields := stapp.CoreMgr.GetAllSearchName()
-	searchEntry := xwidget.NewCompletionEntry(searchFields)
+	searchEntry := logic.NewCompletionEntry(searchFields)
 	searchEntry.SetPlaceHolder("Search here")
 	searchEntry.SetMinRowsVisible(2)
 	// 设置默认值
@@ -338,7 +337,7 @@ func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.Ca
 func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit logic.StStrRowUnit, attrBox *fyne.Container, rowList *[]logic.StRowUnit) {
 	var entryOption *widget.Select
 	// var entryType *widget.Entry
-	var entryTypeSelect *xwidget.CompletionEntry
+	var entryTypeSelect *logic.CompletionEntry
 
 	if tabletype == logic.TableType_Message {
 		entryOption = widget.NewSelect([]string{"optional", "repeated"}, nil)
@@ -357,7 +356,9 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 
 		// 搜索框
 		searchFields := stapp.CoreMgr.GetAllUseableEntryTypeWithProtoType()
-		entryTypeSelect = xwidget.NewCompletionEntry(searchFields)
+		entryTypeSelect = logic.NewCompletionEntry(searchFields)
+		entryTypeSelect.ShowMouseMenu(true)
+
 		// 设置默认值
 		entryTypeSelect.SetPlaceHolder("Enter filed type...")
 		if strRowUnit.EntryType != "" {
@@ -377,7 +378,17 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 			entryTypeSelect.SetOptions(strMatches)
 			entryTypeSelect.ShowCompletion()
 		}
-
+		// entryTypeSelect.ActionItem = widget.NewToolbar(
+		// 	// 将自定义的 ActionItem 添加到工具栏中
+		// 	&UnitTypeActionItem{"Info", theme.InfoIcon()},
+		// 	// 您可以继续添加更多的动作项...
+		// )
+		// entryTypeSelect.ActionItem = widget.NewButton("Clear", func() {
+		// 	entryTypeSelect.SetText("")
+		// })
+		entryTypeSelect.OnCursorChanged = func() {
+			logrus.Info("[CreateRowForEditUnit] OnCursorChanged. tabletype:", tabletype, ",strRowUnit:", strRowUnit)
+		}
 	}
 
 	entryName := widget.NewEntry()
