@@ -334,131 +334,6 @@ func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.Ca
 	return topContainer
 }
 
-func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit logic.StStrRowUnit, attrBox *fyne.Container, rowList *[]logic.StRowUnit) {
-	var entryOption *widget.Select
-	// var entryType *widget.Entry
-	var entryTypeSelect *logic.CompletionEntry
-
-	if tabletype == logic.TableType_Message {
-		entryOption = widget.NewSelect([]string{"optional", "repeated"}, nil)
-		if strRowUnit.EntryOption == "" {
-			entryOption.Selected = "optional"
-		} else {
-			entryOption.Selected = strRowUnit.EntryOption
-		}
-
-		// 输入框
-		// entryType = widget.NewEntry()
-		// entryType.SetPlaceHolder("Enter type...")
-		// if strRowUnit.EntryType != "" {
-		// 	entryType.SetText(strRowUnit.EntryType)
-		// }
-
-		// 搜索框
-		searchFields := stapp.CoreMgr.GetAllUseableEntryTypeWithProtoType()
-		entryTypeSelect = logic.NewCompletionEntry(searchFields)
-		entryTypeSelect.ShowMouseMenu(true)
-
-		// 设置默认值
-		entryTypeSelect.SetPlaceHolder("Enter filed type...")
-		if strRowUnit.EntryType != "" {
-			entryTypeSelect.SetText(strRowUnit.EntryType)
-		}
-		// When the use typed text, complete the list.
-		entryTypeSelect.OnChanged = func(str string) {
-			if str == "" {
-				return
-			}
-			matches := fuzzy.RankFind(str, searchFields)
-			sort.Sort(matches)
-			var strMatches []string
-			for _, matchone := range matches {
-				strMatches = append(strMatches, matchone.Target)
-			}
-			entryTypeSelect.SetOptions(strMatches)
-			entryTypeSelect.ShowCompletion()
-		}
-		// entryTypeSelect.ActionItem = widget.NewToolbar(
-		// 	// 将自定义的 ActionItem 添加到工具栏中
-		// 	&UnitTypeActionItem{"Info", theme.InfoIcon()},
-		// 	// 您可以继续添加更多的动作项...
-		// )
-		// entryTypeSelect.ActionItem = widget.NewButton("Clear", func() {
-		// 	entryTypeSelect.SetText("")
-		// })
-		entryTypeSelect.OnCursorChanged = func() {
-			logrus.Info("[CreateRowForEditUnit] OnCursorChanged. tabletype:", tabletype, ",strRowUnit:", strRowUnit)
-		}
-	}
-
-	entryName := widget.NewEntry()
-	entryName.SetPlaceHolder("Enter variable name...")
-	if strRowUnit.EntryName != "" {
-		entryName.SetText(strRowUnit.EntryName)
-	}
-
-	entryComment := widget.NewEntry()
-	entryComment.SetPlaceHolder("Comment...")
-	if strRowUnit.EntryComment != "" {
-		entryComment.SetText(strRowUnit.EntryComment)
-	}
-
-	entryIndex := widget.NewEntry()
-	entryIndex.SetText(strRowUnit.EntryIndex)
-
-	var oneRow *container.Split
-	if tabletype == logic.TableType_Message {
-		oneRowKeyValue := container.NewHSplit(entryTypeSelect, entryName)
-		oneRowKeyValue.Offset = 0.35
-
-		oneRowOptionKeyValue := container.NewHSplit(entryOption, oneRowKeyValue)
-		oneRowOptionKeyValue.Offset = 0.05
-
-		oneRowOptionKeyValueIndex := container.NewHSplit(oneRowOptionKeyValue, entryIndex)
-		oneRowOptionKeyValueIndex.Offset = 0.95
-
-		oneRow = container.NewHSplit(oneRowOptionKeyValueIndex, entryComment)
-		oneRow.Offset = 0.75
-	} else if tabletype == logic.TableType_Enum {
-		oneRowNameIndex := container.NewHSplit(entryName, entryIndex)
-		oneRowNameIndex.Offset = 0.9
-		oneRow = container.NewHSplit(oneRowNameIndex, entryComment)
-		oneRow.Offset = 0.6
-	}
-
-	// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
-	stRow := logic.StRowUnit{
-		EntryIndex:   entryIndex,
-		EntryOption:  entryOption,
-		EntryType:    entryTypeSelect,
-		EntryName:    entryName,
-		EntryComment: entryComment,
-	}
-
-	var deleteFunc func() // 声明删除操作函数
-	// 在每一行添加一个"删除"按钮
-	deleteButton := widget.NewButton("Delete", func() {
-		if deleteFunc != nil {
-			deleteFunc()
-		}
-	})
-	oneRowWithDeleteButton := container.NewHSplit(deleteButton, oneRow)
-	oneRowWithDeleteButton.Offset = 0.01
-
-	// 将删除操作定义为一个独立的函数
-	deleteFunc = func() {
-		// 从rowList和attrBox中移除该行
-		*rowList = stRow.RemoveElementFromSlice(*rowList, stRow)
-		attrBox.Remove(oneRowWithDeleteButton)
-		attrBox.Refresh()
-		// customDialog.Refresh()
-	}
-	attrBox.Add(oneRowWithDeleteButton)
-	attrBox.Refresh()
-	*rowList = append(*rowList, stRow)
-	logrus.Info("[CreateRowForEditUnit] done. tabletype:", tabletype, ",strRowUnit:", strRowUnit)
-}
-
 // 创建新Message的编辑页面
 func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	dialogContent := container.NewVBox()
@@ -596,6 +471,183 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	})
 
 	customDialog.Show()
+}
+
+func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit logic.StStrRowUnit, attrBox *fyne.Container, rowList *[]logic.StRowUnit) {
+	var entryOption *widget.Select
+	// var entryType *widget.Entry
+	var entryTypeSelect *logic.CompletionEntry
+
+	if tabletype == logic.TableType_Message {
+		entryOption = widget.NewSelect([]string{"optional", "repeated"}, nil)
+		if strRowUnit.EntryOption == "" {
+			entryOption.Selected = "optional"
+		} else {
+			entryOption.Selected = strRowUnit.EntryOption
+		}
+
+		// 输入框
+		// entryType = widget.NewEntry()
+		// entryType.SetPlaceHolder("Enter type...")
+		// if strRowUnit.EntryType != "" {
+		// 	entryType.SetText(strRowUnit.EntryType)
+		// }
+
+		// 搜索框
+		searchFields := stapp.CoreMgr.GetAllUseableEntryTypeWithProtoType()
+		entryTypeSelect = logic.NewCompletionEntry(searchFields)
+		entryTypeSelect.ShowMouseMenu(true)
+
+		// 设置默认值
+		entryTypeSelect.SetPlaceHolder("Enter filed type...")
+		if strRowUnit.EntryType != "" {
+			entryTypeSelect.SetText(strRowUnit.EntryType)
+		}
+		// When the use typed text, complete the list.
+		entryTypeSelect.OnChanged = func(str string) {
+			if str == "" {
+				return
+			}
+			matches := fuzzy.RankFind(str, searchFields)
+			sort.Sort(matches)
+			var strMatches []string
+			for _, matchone := range matches {
+				strMatches = append(strMatches, matchone.Target)
+			}
+			entryTypeSelect.SetOptions(strMatches)
+			entryTypeSelect.ShowCompletion()
+		}
+		// 鼠标右键事件
+		entryTypeSelect.OnTappedSecondary = func(pe *fyne.PointEvent) {
+			if entryTypeSelect.Text == "" {
+				return
+			}
+			stapp.CreateEntryTypeInfo(entryTypeSelect, pe)
+		}
+
+	}
+
+	entryName := widget.NewEntry()
+	entryName.SetPlaceHolder("Enter variable name...")
+	if strRowUnit.EntryName != "" {
+		entryName.SetText(strRowUnit.EntryName)
+	}
+
+	entryComment := widget.NewEntry()
+	entryComment.SetPlaceHolder("Comment...")
+	if strRowUnit.EntryComment != "" {
+		entryComment.SetText(strRowUnit.EntryComment)
+	}
+
+	entryIndex := widget.NewEntry()
+	entryIndex.SetText(strRowUnit.EntryIndex)
+
+	var oneRow *container.Split
+	if tabletype == logic.TableType_Message {
+		oneRowKeyValue := container.NewHSplit(entryTypeSelect, entryName)
+		oneRowKeyValue.Offset = 0.35
+
+		oneRowOptionKeyValue := container.NewHSplit(entryOption, oneRowKeyValue)
+		oneRowOptionKeyValue.Offset = 0.05
+
+		oneRowOptionKeyValueIndex := container.NewHSplit(oneRowOptionKeyValue, entryIndex)
+		oneRowOptionKeyValueIndex.Offset = 0.95
+
+		oneRow = container.NewHSplit(oneRowOptionKeyValueIndex, entryComment)
+		oneRow.Offset = 0.75
+	} else if tabletype == logic.TableType_Enum {
+		oneRowNameIndex := container.NewHSplit(entryName, entryIndex)
+		oneRowNameIndex.Offset = 0.9
+		oneRow = container.NewHSplit(oneRowNameIndex, entryComment)
+		oneRow.Offset = 0.6
+	}
+
+	// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
+	stRow := logic.StRowUnit{
+		EntryIndex:   entryIndex,
+		EntryOption:  entryOption,
+		EntryType:    entryTypeSelect,
+		EntryName:    entryName,
+		EntryComment: entryComment,
+	}
+
+	var deleteFunc func() // 声明删除操作函数
+	// 在每一行添加一个"删除"按钮
+	deleteButton := widget.NewButton("Delete", func() {
+		if deleteFunc != nil {
+			deleteFunc()
+		}
+	})
+	oneRowWithDeleteButton := container.NewHSplit(deleteButton, oneRow)
+	oneRowWithDeleteButton.Offset = 0.01
+
+	// 将删除操作定义为一个独立的函数
+	deleteFunc = func() {
+		// 从rowList和attrBox中移除该行
+		*rowList = stRow.RemoveElementFromSlice(*rowList, stRow)
+		attrBox.Remove(oneRowWithDeleteButton)
+		attrBox.Refresh()
+		// customDialog.Refresh()
+	}
+	attrBox.Add(oneRowWithDeleteButton)
+	attrBox.Refresh()
+	*rowList = append(*rowList, stRow)
+	logrus.Info("[CreateRowForEditUnit] done. tabletype:", tabletype, ",strRowUnit:", strRowUnit)
+}
+
+// 创建详情页
+func (stapp *StApp) CreateEntryTypeInfo(entry *logic.CompletionEntry, pe *fyne.PointEvent) {
+
+	// 带有快捷键的右键按钮[不要删!目前暂时直接显示依赖.]
+	// clipboard := fyne.CurrentApp().Driver().AllWindows()[0].Clipboard()
+	// canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
+
+	// // cutItem := fyne.NewMenuItem("Cut", func() {
+	// // 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutCut{Clipboard: clipboard})
+	// // })
+	// // copyItem := fyne.NewMenuItem("Copy", func() {
+	// // 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutCopy{Clipboard: clipboard})
+	// // })
+	// // pasteItem := fyne.NewMenuItem("Paste", func() {
+	// // 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
+	// // })
+	// referencesItem := fyne.NewMenuItem("References", func() {
+	// 	// canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
+	// })
+
+	// popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
+	// popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
+
+	// menu := fyne.NewMenu("", referencesItem)
+
+	// pPopUp := widget.NewPopUpMenu(menu, canvas)
+	// pPopUp.ShowAtPosition(popUpPos)
+	// pPopUp.Show()
+	//
+	logrus.Info("[CreateRowForEditUnit] CreateEntryTypeInfo. ")
+	stapp.CreateEntryReferenceList(entry, pe)
+}
+
+func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *fyne.PointEvent) {
+	dialogContent := container.NewVBox()
+	canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
+	pPopUp := widget.NewPopUp(container.NewVScroll(dialogContent), canvas)
+	// 设置窗口大小
+	// pPopUp.Resize(fyne.NewSize(600, 800))
+	// 设置窗口位置
+	popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
+	popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
+	pPopUp.ShowAtPosition(popUpPos)
+	// 显示
+	pPopUp.Show()
+}
+
+func (stapp *StApp) DestoryEntryTypeInfo(pPopUp **widget.PopUp) {
+	if *pPopUp != nil {
+		(*pPopUp).Hide()
+		*pPopUp = nil
+	}
+	logrus.Info("[CreateRowForEditUnit] OnMouseOut. ")
 }
 
 // 检查 StUnit

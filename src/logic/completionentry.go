@@ -21,7 +21,10 @@ type CompletionEntry struct {
 	CustomUpdate func(id widget.ListItemID, object fyne.CanvasObject)
 
 	// 新增鼠标事件
-	bShowMouseMenu bool
+	bShowMouseMenu    bool
+	OnMouseIn         func(*desktop.MouseEvent) `json:"-"`
+	OnMouseOut        func()                    `json:"-"`
+	OnTappedSecondary func(pe *fyne.PointEvent) `json:"-"`
 }
 
 // NewCompletionEntry creates a new CompletionEntry which creates a popup menu that responds to keystrokes to navigate through the items without losing the editing ability of the text input.
@@ -151,12 +154,15 @@ func (e *CompletionEntry) TypedKey(key *fyne.KeyEvent) {
 	e.Entry.TypedKey(key)
 }
 
-func (e *CompletionEntry) MouseIn(*desktop.MouseEvent) {
+func (e *CompletionEntry) MouseIn(event *desktop.MouseEvent) {
 	// 鼠标移入 Entry 控件的事件处理
 	if !e.bShowMouseMenu {
 		return
 	}
-	logrus.Info("[CompletionEntry] MouseIn. Content:", e.Text)
+	logrus.Info("[MouseIn] MouseIn.")
+	if e.OnMouseIn != nil {
+		e.OnMouseIn(event)
+	}
 }
 
 func (e *CompletionEntry) MouseMoved(*desktop.MouseEvent) {
@@ -172,7 +178,18 @@ func (e *CompletionEntry) MouseOut() {
 	if !e.bShowMouseMenu {
 		return
 	}
-	logrus.Info("[CompletionEntry] MouseOut.  Content:", e.Text)
+	if e.OnMouseOut != nil {
+		e.OnMouseOut()
+	}
+}
+
+func (e *CompletionEntry) TappedSecondary(pe *fyne.PointEvent) {
+
+	if e.OnTappedSecondary != nil {
+		e.OnTappedSecondary(pe)
+	}
+
+	// e.Entry.TappedSecondary(pe)
 }
 
 type navigableList struct {
