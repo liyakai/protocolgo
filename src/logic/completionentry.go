@@ -5,7 +5,6 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/sirupsen/logrus"
 )
 
 // CompletionEntry is an Entry with options displayed in a PopUpMenu.
@@ -159,7 +158,6 @@ func (e *CompletionEntry) MouseIn(event *desktop.MouseEvent) {
 	if !e.bShowMouseMenu {
 		return
 	}
-	logrus.Info("[MouseIn] MouseIn.")
 	if e.OnMouseIn != nil {
 		e.OnMouseIn(event)
 	}

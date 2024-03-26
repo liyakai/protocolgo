@@ -293,7 +293,7 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 		msg_catagory = Stapp.DocEtree.CreateElement("message")
 	}
 	newMessageListString := []string{}
-
+	Stapp.References = map[string][]string{}
 	// 遍历子元素
 	for _, MsgClass := range msg_catagory.ChildElements() {
 		newMessageListString = append(newMessageListString, MsgClass.Tag)
@@ -313,7 +313,6 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 				break
 			}
 		}
-		Stapp.References = map[string][]string{}
 		for _, MsgClassConent := range MsgClass.ChildElements() {
 			entryName := MsgClassConent.SelectAttr("EntryName")
 			if entryName != nil && entryName.Value != "" {
@@ -333,7 +332,7 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 			entryType := MsgClassConent.SelectAttr("EntryType")
 			if entryType != nil && entryType.Value != "" && !Stapp.CheckProtoType(entryType.Value) {
 				Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], MsgClass.Tag)
-				// logrus.Debug("SyncListWithETree init References.Value:", entryType.Value, ", MsgClass.Tag:", MsgClass.Tag)
+				// logrus.Debug("SyncListWithETree init References. Value:", entryType.Value, ", MsgClass.Tag:", MsgClass.Tag, ",--->Stapp.References:", Stapp.References)
 			}
 		}
 	}
@@ -450,7 +449,6 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 	// 查找 enum 名字
 	enum_uint := enum_catagory.FindElement(name)
 	if enum_uint != nil {
-		Stapp.EnumTableList.Set([]string{name})
 		return TableType_Enum
 	}
 
@@ -461,7 +459,6 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 	// 查找 message 名字
 	msg_uint := msg_catagory.FindElement(name)
 	if msg_uint != nil {
-		Stapp.MessageTableList.Set([]string{name})
 		return TableType_Message
 	}
 	return TableType_None

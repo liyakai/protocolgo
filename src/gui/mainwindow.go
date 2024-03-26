@@ -271,8 +271,10 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 		eTableType := stapp.CoreMgr.SearchTableListWithName(str)
 		if eTableType == logic.TableType_Enum {
 			stapp.tables.SelectIndex(0)
+			stapp.CoreMgr.EnumTableList.Set([]string{str})
 		} else if eTableType == logic.TableType_Message {
 			stapp.tables.SelectIndex(1)
+			stapp.CoreMgr.MessageTableList.Set([]string{str})
 		}
 	}
 
@@ -635,7 +637,7 @@ func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *f
 	bindingStringList := binding.NewStringList()
 	logrus.Info("[CreateEntryReferenceList] entry.Text:", entry.Text, ", GetReferences:", stapp.CoreMgr.GetReferences(entry.Text))
 	bindingStringList.Set(stapp.CoreMgr.GetReferences(entry.Text))
-	dialogContent := widget.NewListWithData(bindingStringList,
+	referenceList := widget.NewListWithData(bindingStringList,
 		func() fyne.CanvasObject {
 			label := &TableListLabel{}
 			label.ExtendBaseWidget(label)
@@ -648,11 +650,18 @@ func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *f
 			o.(*TableListLabel).tabletype = stapp.CoreMgr.SearchTableListWithName(entry.Text)
 		},
 	)
-
+	// 使用垂直布局将上部和下部容器组合在一起
+	buttonwithlist := container.NewBorder(
+		widget.NewLabel(entry.Text+"'s references list:"),
+		nil,
+		nil,
+		nil,
+		container.NewStack(referenceList),
+	)
 	canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
-	pPopUp := widget.NewPopUp(container.NewVScroll(dialogContent), canvas)
+	pPopUp := widget.NewPopUp(container.NewStack(buttonwithlist), canvas)
 	// 设置窗口大小
-	pPopUp.Resize(fyne.NewSize(600, 800))
+	pPopUp.Resize(fyne.NewSize(600, 600))
 	// 设置窗口位置
 	popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
 	popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
