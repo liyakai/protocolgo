@@ -238,6 +238,7 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 	searchFields := stapp.CoreMgr.GetAllSearchName()
 	searchEntry := xwidget.NewCompletionEntry(searchFields)
 	searchEntry.SetPlaceHolder("Search here")
+	searchEntry.SetMinRowsVisible(2)
 	// 设置默认值
 	// When the use typed text, complete the list.
 	searchEntry.OnChanged = func(str string) {
@@ -473,8 +474,9 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	}
 	inputInfoContainer.Add(inputUnitName)
 	// 注释
-	inputUnitComment := widget.NewEntry()
+	inputUnitComment := widget.NewMultiLineEntry()
 	inputUnitComment.SetPlaceHolder("Enter Comment...")
+	inputUnitComment.SetMinRowsVisible(3)
 	inputInfoContainer.Add(inputUnitComment)
 	if !bCreateNew {
 		for _, child := range etreeRow.Child {
