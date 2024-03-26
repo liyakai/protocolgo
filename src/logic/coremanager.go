@@ -251,31 +251,34 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 		newEnumListString = append(newEnumListString, EnumClass.Tag)
 		// 枚举类名字映射
 		Stapp.SearchMap[EnumClass.Tag] = EnumClass.Tag
-		Stapp.SearchMap[strings.ToLower(EnumClass.Tag)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
-		Stapp.SearchMap[strings.ToUpper(EnumClass.Tag)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
+		Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToLower(EnumClass.Tag)] = EnumClass.Tag
+		Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToUpper(EnumClass.Tag)] = EnumClass.Tag
 		// 将注释映射
 		for _, child := range EnumClass.Child {
 			// 检查该子元素是否为注释
 			if comment, ok := child.(*etree.Comment); ok {
-				Stapp.SearchMap[comment.Data+"["+EnumClass.Tag+"]"] = EnumClass.Tag
-				Stapp.SearchMap[strings.ToLower(comment.Data)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
-				Stapp.SearchMap[strings.ToUpper(comment.Data)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
+				if comment.Data != "" {
+					Stapp.SearchMap["["+EnumClass.Tag+"]"+comment.Data] = EnumClass.Tag
+					Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToLower(comment.Data)] = EnumClass.Tag
+					Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToUpper(comment.Data)] = EnumClass.Tag
+				}
+
 				break
 			}
 		}
 		for _, EnumClassConent := range EnumClass.ChildElements() {
 			entryName := EnumClassConent.SelectAttr("EntryName")
 			if entryName != nil && entryName.Value != "" {
-				Stapp.SearchMap[entryName.Value+"["+EnumClass.Tag+"]"] = EnumClass.Tag
-				Stapp.SearchMap[strings.ToLower(entryName.Value)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
-				Stapp.SearchMap[strings.ToUpper(entryName.Value)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
+				Stapp.SearchMap["["+EnumClass.Tag+"]"+entryName.Value] = EnumClass.Tag
+				Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToLower(entryName.Value)] = EnumClass.Tag
+				Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToUpper(entryName.Value)] = EnumClass.Tag
 				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
 			}
 			entryComment := EnumClassConent.SelectAttr("EntryComment")
 			if entryComment != nil && entryComment.Value != "" {
-				Stapp.SearchMap[entryComment.Value+"["+EnumClass.Tag+"]"] = EnumClass.Tag
-				Stapp.SearchMap[strings.ToLower(entryComment.Value)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
-				Stapp.SearchMap[strings.ToUpper(entryComment.Value)+"["+EnumClass.Tag+"]"] = EnumClass.Tag
+				Stapp.SearchMap["["+EnumClass.Tag+"]"+entryComment.Value] = EnumClass.Tag
+				Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToLower(entryComment.Value)] = EnumClass.Tag
+				Stapp.SearchMap["["+EnumClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = EnumClass.Tag
 				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
 			}
 		}
@@ -295,31 +298,33 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 		newMessageListString = append(newMessageListString, MsgClass.Tag)
 		// 枚举类名字映射
 		Stapp.SearchMap[MsgClass.Tag] = MsgClass.Tag
-		Stapp.SearchMap[strings.ToLower(MsgClass.Tag)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
-		Stapp.SearchMap[strings.ToUpper(MsgClass.Tag)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
+		Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(MsgClass.Tag)] = MsgClass.Tag
+		Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(MsgClass.Tag)] = MsgClass.Tag
 		// 将注释映射
 		for _, child := range MsgClass.Child {
 			// 检查该子元素是否为注释
 			if comment, ok := child.(*etree.Comment); ok {
-				Stapp.SearchMap[comment.Data+"["+MsgClass.Tag+"]"] = MsgClass.Tag
-				Stapp.SearchMap[strings.ToLower(comment.Data)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
-				Stapp.SearchMap[strings.ToUpper(comment.Data)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
+				if comment.Data != "" {
+					Stapp.SearchMap["["+MsgClass.Tag+"]"+comment.Data] = MsgClass.Tag
+					Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(comment.Data)] = MsgClass.Tag
+					Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(comment.Data)] = MsgClass.Tag
+				}
 				break
 			}
 		}
 		for _, MsgClassConent := range MsgClass.ChildElements() {
 			entryName := MsgClassConent.SelectAttr("EntryName")
 			if entryName != nil && entryName.Value != "" {
-				Stapp.SearchMap[entryName.Value+"["+MsgClass.Tag+"]"] = MsgClass.Tag
-				Stapp.SearchMap[strings.ToLower(entryName.Value)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
-				Stapp.SearchMap[strings.ToUpper(entryName.Value)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
+				Stapp.SearchMap["["+MsgClass.Tag+"]"+entryName.Value] = MsgClass.Tag
+				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(entryName.Value)] = MsgClass.Tag
+				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(entryName.Value)] = MsgClass.Tag
 				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
 			}
 			entryComment := MsgClassConent.SelectAttr("EntryComment")
 			if entryComment != nil && entryComment.Value != "" {
-				Stapp.SearchMap[entryComment.Value+"["+MsgClass.Tag+"]"] = MsgClass.Tag
-				Stapp.SearchMap[strings.ToLower(entryComment.Value)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
-				Stapp.SearchMap[strings.ToUpper(entryComment.Value)+"["+MsgClass.Tag+"]"] = MsgClass.Tag
+				Stapp.SearchMap["["+MsgClass.Tag+"]"+entryComment.Value] = MsgClass.Tag
+				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(entryComment.Value)] = MsgClass.Tag
+				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = MsgClass.Tag
 				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
 			}
 		}
