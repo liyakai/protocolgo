@@ -22,11 +22,12 @@ const (
 
 type CoreManager struct {
 	DocEtree         *etree.Document
-	XmlFilePath      string             // 打开的Xml文件路径
-	EnumTableList    binding.StringList // enum 数据源
-	MessageTableList binding.StringList // message 数据源
-	SearchMap        map[string]string  // 所有可搜索元素到列表名字的映射
-	SearchBuffer     []string           // 所有可所有元素列表
+	XmlFilePath      string              // 打开的Xml文件路径
+	EnumTableList    binding.StringList  // enum 数据源
+	MessageTableList binding.StringList  // message 数据源
+	SearchMap        map[string]string   // 所有可搜索元素到列表名字的映射
+	SearchBuffer     []string            // 所有可所有元素列表
+	References       map[string][]string // 字段的依赖列表
 }
 
 func (Stapp *CoreManager) Init() {
@@ -312,6 +313,7 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 				break
 			}
 		}
+		Stapp.References = map[string][]string{}
 		for _, MsgClassConent := range MsgClass.ChildElements() {
 			entryName := MsgClassConent.SelectAttr("EntryName")
 			if entryName != nil && entryName.Value != "" {
@@ -326,6 +328,12 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(entryComment.Value)] = MsgClass.Tag
 				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = MsgClass.Tag
 				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
+			}
+			// 记录依赖
+			entryType := MsgClassConent.SelectAttr("EntryType")
+			if entryType != nil && entryType.Value != "" && !Stapp.CheckProtoType(entryType.Value) {
+				Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], MsgClass.Tag)
+				// logrus.Debug("SyncListWithETree init References.Value:", entryType.Value, ", MsgClass.Tag:", MsgClass.Tag)
 			}
 		}
 	}
@@ -402,10 +410,28 @@ func (Stapp *CoreManager) GetAllUseableEntryType() []string {
 	return result
 }
 
-func (Stapp *CoreManager) GetAllUseableEntryTypeWithProtoType() []string {
-	result := Stapp.GetAllUseableEntryType()
-	result = append(result, "int32", "int64", "uint32", "uint64", "sint32", "sint64", "fixed32", "fixed64", "sfixed32", "sfixed64", "float", "double", "bool", "string", "bytes")
+func (coremgr *CoreManager) GetProtoType() []string {
+	return []string{"int32", "int64", "uint32", "uint64", "sint32", "sint64", "fixed32", "fixed64", "sfixed32", "sfixed64", "float", "double", "bool", "string", "bytes"}
+}
+
+func (coremgr *CoreManager) CheckProtoType(str string) bool {
+	for _, v := range coremgr.GetProtoType() {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func (coremgr *CoreManager) GetAllUseableEntryTypeWithProtoType() []string {
+	result := coremgr.GetAllUseableEntryType()
+	result = append(result, coremgr.GetProtoType()...)
 	return result
+}
+
+// 获取References
+func (coremgr *CoreManager) GetReferences(str string) []string {
+	return coremgr.References[str]
 }
 
 func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
@@ -439,5 +465,4 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 		return TableType_Message
 	}
 	return TableType_None
-
 }

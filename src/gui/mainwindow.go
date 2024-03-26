@@ -625,21 +625,41 @@ func (stapp *StApp) CreateEntryTypeInfo(entry *logic.CompletionEntry, pe *fyne.P
 	// pPopUp.Show()
 	//
 	logrus.Info("[CreateRowForEditUnit] CreateEntryTypeInfo. ")
-	stapp.CreateEntryReferenceList(entry, pe)
+	if !stapp.CoreMgr.CheckProtoType(entry.Text) {
+		stapp.CreateEntryReferenceList(entry, pe)
+	}
+
 }
 
 func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *fyne.PointEvent) {
-	dialogContent := container.NewVBox()
+	bindingStringList := binding.NewStringList()
+	logrus.Info("[CreateEntryReferenceList] entry.Text:", entry.Text, ", GetReferences:", stapp.CoreMgr.GetReferences(entry.Text))
+	bindingStringList.Set(stapp.CoreMgr.GetReferences(entry.Text))
+	dialogContent := widget.NewListWithData(bindingStringList,
+		func() fyne.CanvasObject {
+			label := &TableListLabel{}
+			label.ExtendBaseWidget(label)
+			return label
+		},
+		func(i binding.DataItem, o fyne.CanvasObject) {
+			o.(*TableListLabel).Bind(i.(binding.String))
+			o.(*TableListLabel).data = i.(binding.String)
+			o.(*TableListLabel).app = stapp
+			o.(*TableListLabel).tabletype = stapp.CoreMgr.SearchTableListWithName(entry.Text)
+		},
+	)
+
 	canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
 	pPopUp := widget.NewPopUp(container.NewVScroll(dialogContent), canvas)
 	// 设置窗口大小
-	// pPopUp.Resize(fyne.NewSize(600, 800))
+	pPopUp.Resize(fyne.NewSize(600, 800))
 	// 设置窗口位置
 	popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
 	popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
 	pPopUp.ShowAtPosition(popUpPos)
 	// 显示
 	pPopUp.Show()
+
 }
 
 func (stapp *StApp) DestoryEntryTypeInfo(pPopUp **widget.PopUp) {
