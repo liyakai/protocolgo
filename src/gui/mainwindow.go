@@ -429,8 +429,23 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	attrBoader := container.NewBorder(nil, nil, nil, addButton, attrBox)
 	inputInfoContainer.Add(attrBoader)
 
+	referencesList := stapp.CreateEntryReferenceListCanvas(unitname)
+	referencesList.Hide()
+	bShowReferenceList := false
+
 	// 增加关闭,保存按钮
 	buttons := container.NewHBox(
+		widget.NewButton("References", func() {
+			// Cancel logic goes here
+			if bShowReferenceList {
+				bShowReferenceList = false
+				referencesList.Hide()
+			} else {
+				bShowReferenceList = true
+				referencesList.Show()
+			}
+
+		}),
 		// Cancel Button
 		widget.NewButton("Cancel", func() {
 			// Cancel logic goes here
@@ -462,6 +477,7 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 
 	inputInfoContainer.Add(container.NewCenter(buttons))
 	dialogContent.Add(inputInfoContainer)
+	dialogContent.Add(referencesList)
 
 	// 创建退出快捷键
 	(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
@@ -624,7 +640,7 @@ func (stapp *StApp) CreateEntryTypeInfo(entry *logic.CompletionEntry, pe *fyne.P
 	})
 	referencesItem := fyne.NewMenuItem("References", func() {
 		// canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
-		stapp.CreateEntryReferenceList(entry, pe)
+		stapp.CreateEntryReferenceListSingle(entry, pe)
 	})
 
 	popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
@@ -640,10 +656,23 @@ func (stapp *StApp) CreateEntryTypeInfo(entry *logic.CompletionEntry, pe *fyne.P
 
 }
 
-func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *fyne.PointEvent) {
+func (stapp *StApp) CreateEntryReferenceListSingle(entry *logic.CompletionEntry, pe *fyne.PointEvent) {
+	canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
+	pPopUp := widget.NewPopUp(stapp.CreateEntryReferenceListCanvas(entry.Text), canvas)
+	// 设置窗口大小
+	pPopUp.Resize(fyne.NewSize(600, 600))
+	// 设置窗口位置
+	popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
+	popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
+	pPopUp.ShowAtPosition(popUpPos)
+	// 显示
+	pPopUp.Show()
+}
+
+func (stapp *StApp) CreateEntryReferenceListCanvas(name string) *fyne.Container {
 	bindingStringList := binding.NewStringList()
-	logrus.Info("[CreateEntryReferenceList] entry.Text:", entry.Text, ", GetReferences:", stapp.CoreMgr.GetReferences(entry.Text))
-	bindingStringList.Set(stapp.CoreMgr.GetReferences(entry.Text))
+	logrus.Info("[CreateEntryReferenceList] name:", name, ", GetReferences:", stapp.CoreMgr.GetReferences(name))
+	bindingStringList.Set(stapp.CoreMgr.GetReferences(name))
 	referenceList := widget.NewListWithData(bindingStringList,
 		func() fyne.CanvasObject {
 			label := &TableListLabel{}
@@ -659,22 +688,13 @@ func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *f
 	)
 	// 使用垂直布局将上部和下部容器组合在一起
 	buttonwithlist := container.NewBorder(
-		widget.NewLabel(entry.Text+"'s references list:"),
+		widget.NewLabel(name+"'s references list:"),
 		nil,
 		nil,
 		nil,
 		container.NewStack(referenceList),
 	)
-	canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
-	pPopUp := widget.NewPopUp(container.NewStack(buttonwithlist), canvas)
-	// 设置窗口大小
-	pPopUp.Resize(fyne.NewSize(600, 600))
-	// 设置窗口位置
-	popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
-	popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
-	pPopUp.ShowAtPosition(popUpPos)
-	// 显示
-	pPopUp.Show()
+	return container.NewStack(buttonwithlist)
 }
 
 func (stapp *StApp) DestoryEntryTypeInfo(pPopUp **widget.PopUp) {
