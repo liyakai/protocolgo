@@ -21,8 +21,9 @@ const (
 )
 
 type CoreManager struct {
-	DocEtree         *etree.Document
+	DocEtree         *etree.Document     // protocol 数据
 	XmlFilePath      string              // 打开的Xml文件路径
+	Config           *etree.Document     // 配置数据
 	EnumTableList    binding.StringList  // enum 数据源
 	MessageTableList binding.StringList  // message 数据源
 	SearchMap        map[string]string   // 所有可搜索元素到列表名字的映射
@@ -35,6 +36,10 @@ func (Stapp *CoreManager) Init() {
 	Stapp.EnumTableList = binding.NewStringList()
 	Stapp.MessageTableList = binding.NewStringList()
 
+	configXmlPath := utils.GetWorkRootPath() + "/data/config.xml"
+	Stapp.ReadConfigFromFile(configXmlPath)
+
+	// 读取协议xml文件
 	Stapp.XmlFilePath = utils.GetWorkRootPath() + "/data/protocolgo.xml"
 	Stapp.ReadXmlFromFile(Stapp.XmlFilePath)
 
@@ -107,6 +112,121 @@ func (Stapp *CoreManager) SetCurrXmlFilePath(currFilePath string) {
 	Stapp.CloseCurrXmlFile()
 	Stapp.XmlFilePath = currFilePath
 	logrus.Info("SetCurrXmlFilePath done.currFilePath:", currFilePath)
+}
+
+// 读取配置
+func (Stapp *CoreManager) ReadConfigFromFile(filename string) {
+	// 如果现在打开的xml不为空,则先保存现在打开的xml
+	Stapp.Config = etree.NewDocument()
+	if err := Stapp.Config.ReadFromFile(filename); err != nil {
+		logrus.Error("ReadConfigFromFile failed. err:", err)
+		panic(err)
+	}
+
+	logrus.Info("ReadConfigFromFile done.")
+}
+
+// 读取服务器命名配置
+func (Stapp *CoreManager) GetConfigServerName() *etree.Element {
+	// 读取Server及其对应的简写
+	configElement := Stapp.Config.FindElement("config")
+	if configElement == nil {
+		logrus.Error("[ReadConfigFromFile] read config failed.")
+		return nil
+	}
+	configServerShortMap := configElement.FindElement("servershort")
+	if configServerShortMap == nil {
+		logrus.Error("[ReadConfigFromFile] read config failed.")
+		return nil
+	}
+	return configServerShortMap
+}
+
+// 读取服务器全名配置
+func (Stapp *CoreManager) GetConfigFullServerName() []string {
+	configServerName := Stapp.GetConfigServerName()
+	if configServerName == nil {
+		logrus.Error("[GetConfigFullServerName] Failed for GetConfigServerName failed.")
+		return []string{}
+	}
+	result := []string{}
+	for _, cfgServer := range configServerName.ChildElements() {
+		cfgFullName := cfgServer.SelectAttr("FullName")
+		if cfgFullName != nil && cfgFullName.Value != "" {
+			result = append(result, cfgFullName.Value)
+		}
+	}
+	return result
+}
+
+// 通过服务器简称获取全称
+func (Stapp *CoreManager) GetFullServerName(shortName string, isClientShort bool) string {
+	configServerName := Stapp.GetConfigServerName()
+	if configServerName == nil {
+		logrus.Error("[GetConfigFullServerName] Failed for GetConfigServerName failed.")
+		return ""
+	}
+	strShortFlag := ""
+	if isClientShort {
+		strShortFlag = "ClientShortName"
+	} else {
+		strShortFlag = "ServerShortName"
+	}
+	result := ""
+	for _, cfgServer := range configServerName.ChildElements() {
+		cfgFullName := cfgServer.SelectAttr(strShortFlag)
+		if cfgFullName != nil && cfgFullName.Value != "" && cfgFullName.Value == shortName {
+			result = cfgServer.SelectAttr("FullName").Value
+			break
+		}
+	}
+	return result
+}
+
+// 根据协议名字推测服务器全名
+func (Stapp *CoreManager) DetectFullNameByProtoName(protoName string) (result bool, firstName string, secondName string) {
+	parts := strings.Split(protoName, "_")
+	if len(parts) < 2 {
+		logrus.Error("[DetectFullNameByProtoName] Failed for invalid protoName:", protoName)
+		return false, "", ""
+	}
+	strNamePre := parts[0]
+	if len(strNamePre) <= 0 {
+		logrus.Error("[DetectFullNameByProtoName] Failed for invalid protoName:", protoName)
+		return false, "", ""
+	}
+	bIsClientProto := false
+	if strNamePre[0] == 'C' {
+		bIsClientProto = true
+	}
+	lenNamePre := len(strNamePre)
+	if bIsClientProto {
+		if lenNamePre != 2 {
+			logrus.Warn("[DetectFullNameByProtoName] strNamePre is not normal. protoName:", protoName, ", strNamePre:", strNamePre)
+			return false, "", ""
+		}
+
+	} else {
+		if lenNamePre != 4 {
+			logrus.Warn("[DetectFullNameByProtoName] strNamePre is not normal. protoName:", protoName, ", strNamePre:", strNamePre)
+			return false, "", ""
+		}
+	}
+	firstShort := strNamePre[:lenNamePre/2]
+	secondShort := strNamePre[lenNamePre/2:]
+
+	return true, Stapp.GetFullServerName(firstShort, bIsClientProto), Stapp.GetFullServerName(secondShort, bIsClientProto)
+}
+
+func (Stapp *CoreManager) SaveConfigToFile() bool {
+	if nil == Stapp.Config {
+		logrus.Warn("SaveConfigToFile failed. invalid param.")
+		return false
+	}
+	Stapp.DocEtree.Indent(4)
+	Stapp.DocEtree.WriteToFile(Stapp.XmlFilePath)
+	logrus.Info("SaveToXmlFile done. XmlFilePath:", Stapp.XmlFilePath)
+	return true
 }
 
 // 处理 StUnit

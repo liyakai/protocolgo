@@ -352,15 +352,32 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 
 	// 创建输入信息的容器
 	inputInfoContainer := container.NewVBox()
+	isSucess, firstFullName, secondFullName := stapp.CoreMgr.DetectFullNameByProtoName(unitname)
+
+	// 创建源数据下拉框
+	selectSourceServer := widget.NewSelect(stapp.CoreMgr.GetConfigFullServerName(), nil)
+	selectTargetServer := widget.NewSelect(stapp.CoreMgr.GetConfigFullServerName(), nil)
+	if isSucess {
+		selectSourceServer.Selected = firstFullName
+		selectTargetServer.Selected = secondFullName
+	}
+	selectServer := container.NewHSplit(selectSourceServer, selectTargetServer)
 	// 创建输入框
 	inputUnitName := widget.NewEntry()
 	inputUnitName.SetPlaceHolder("Enter name...")
 	if !bCreateNew {
 		inputUnitName.SetText(unitname)
 		inputUnitName.TextStyle.Bold = true
-		inputUnitName.Disable()
+		// inputUnitName.Disable()
 	}
-	inputInfoContainer.Add(inputUnitName)
+	selectSeerverInputName := container.NewHSplit(selectServer, inputUnitName)
+	selectSeerverInputName.Offset = 0.2
+	if tabletype == logic.TableType_Enum {
+		inputInfoContainer.Add(inputUnitName)
+	} else if tabletype == logic.TableType_Message {
+		inputInfoContainer.Add(selectSeerverInputName)
+	}
+
 	// 注释
 	inputUnitComment := widget.NewMultiLineEntry()
 	inputUnitComment.SetPlaceHolder("Enter Comment...")
