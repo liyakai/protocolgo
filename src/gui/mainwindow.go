@@ -316,7 +316,7 @@ func (stapp *StApp) CreateTab(tabletype logic.ETableType) fyne.CanvasObject {
 		nil,
 		nil,
 		nil,
-		container.NewStack(list),
+		list,
 	)
 
 	return buttonwithlist
@@ -338,7 +338,7 @@ func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.Ca
 
 // 创建新Message的编辑页面
 func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
-	dialogContent := container.NewVBox()
+	dialogContent := container.NewGridWithRows(2)
 	customDialog := dialog.NewCustomWithoutButtons(stapp.CoreMgr.GetEditTableTitle(tabletype, unitname), container.NewVScroll(dialogContent), *stapp.Window)
 	customDialog.Resize(fyne.NewSize(1100, 800))
 	bCreateNew := false // 是否是新的节点
@@ -709,9 +709,9 @@ func (stapp *StApp) CreateEntryReferenceListCanvas(name string) *fyne.Container 
 		nil,
 		nil,
 		nil,
-		container.NewStack(referenceList),
+		referenceList,
 	)
-	return container.NewStack(buttonwithlist)
+	return buttonwithlist
 }
 
 func (stapp *StApp) DestoryEntryTypeInfo(pPopUp **widget.PopUp) {
