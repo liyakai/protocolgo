@@ -209,11 +209,11 @@ func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
 	}
 }
 
-func (Stapp *CoreManager) GetEditTableTitle(tabletype ETableType) string {
+func (Stapp *CoreManager) GetEditTableTitle(tabletype ETableType, name string) string {
 	if tabletype == TableType_Enum {
-		return "Edit Enum"
+		return "Edit Enum:" + name
 	} else {
-		return "Edit Message"
+		return "Edit Message:" + name
 	}
 }
 

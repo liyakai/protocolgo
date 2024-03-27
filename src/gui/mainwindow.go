@@ -339,7 +339,7 @@ func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.Ca
 // 创建新Message的编辑页面
 func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	dialogContent := container.NewVBox()
-	customDialog := dialog.NewCustomWithoutButtons(stapp.CoreMgr.GetEditTableTitle(tabletype), container.NewVScroll(dialogContent), *stapp.Window)
+	customDialog := dialog.NewCustomWithoutButtons(stapp.CoreMgr.GetEditTableTitle(tabletype, unitname), container.NewVScroll(dialogContent), *stapp.Window)
 	customDialog.Resize(fyne.NewSize(1100, 800))
 	bCreateNew := false // 是否是新的节点
 	etreeRow := stapp.CoreMgr.GetEtreeElem(tabletype, unitname)
@@ -600,36 +600,43 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 // 创建详情页
 func (stapp *StApp) CreateEntryTypeInfo(entry *logic.CompletionEntry, pe *fyne.PointEvent) {
 
-	// 带有快捷键的右键按钮[不要删!目前暂时直接显示依赖.]
+	// 如果是proto type 则不创建
+	if stapp.CoreMgr.CheckProtoType(entry.Text) {
+		return
+	}
+	// 右键按钮
 	// clipboard := fyne.CurrentApp().Driver().AllWindows()[0].Clipboard()
-	// canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
+	canvas := fyne.CurrentApp().Driver().CanvasForObject((*stapp.Window).Content())
 
-	// // cutItem := fyne.NewMenuItem("Cut", func() {
-	// // 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutCut{Clipboard: clipboard})
-	// // })
-	// // copyItem := fyne.NewMenuItem("Copy", func() {
-	// // 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutCopy{Clipboard: clipboard})
-	// // })
-	// // pasteItem := fyne.NewMenuItem("Paste", func() {
-	// // 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
-	// // })
-	// referencesItem := fyne.NewMenuItem("References", func() {
-	// 	// canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
+	// cutItem := fyne.NewMenuItem("Cut", func() {
+	// 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutCut{Clipboard: clipboard})
 	// })
+	// copyItem := fyne.NewMenuItem("Copy", func() {
+	// 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutCopy{Clipboard: clipboard})
+	// })
+	// pasteItem := fyne.NewMenuItem("Paste", func() {
+	// 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
+	// })
+	detailInfoItem := fyne.NewMenuItem("Detail", func() {
+		// canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
+		stapp.EditUnit(stapp.CoreMgr.SearchTableListWithName(entry.Text), entry.Text)
 
-	// popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
-	// popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
+	})
+	referencesItem := fyne.NewMenuItem("References", func() {
+		// canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
+		stapp.CreateEntryReferenceList(entry, pe)
+	})
 
-	// menu := fyne.NewMenu("", referencesItem)
+	popUpPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
+	popUpPos = fyne.NewPos(popUpPos.X+pe.Position.X, popUpPos.Y+pe.Position.Y)
 
-	// pPopUp := widget.NewPopUpMenu(menu, canvas)
-	// pPopUp.ShowAtPosition(popUpPos)
-	// pPopUp.Show()
+	menu := fyne.NewMenu("", detailInfoItem, referencesItem)
+
+	pPopUp := widget.NewPopUpMenu(menu, canvas)
+	pPopUp.ShowAtPosition(popUpPos)
+	pPopUp.Show()
 	//
 	logrus.Info("[CreateRowForEditUnit] CreateEntryTypeInfo. ")
-	if !stapp.CoreMgr.CheckProtoType(entry.Text) {
-		stapp.CreateEntryReferenceList(entry, pe)
-	}
 
 }
 
@@ -647,7 +654,7 @@ func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *f
 			o.(*TableListLabel).Bind(i.(binding.String))
 			o.(*TableListLabel).data = i.(binding.String)
 			o.(*TableListLabel).app = stapp
-			o.(*TableListLabel).tabletype = stapp.CoreMgr.SearchTableListWithName(entry.Text)
+			o.(*TableListLabel).tabletype = logic.TableType_Message
 		},
 	)
 	// 使用垂直布局将上部和下部容器组合在一起
@@ -668,7 +675,6 @@ func (stapp *StApp) CreateEntryReferenceList(entry *logic.CompletionEntry, pe *f
 	pPopUp.ShowAtPosition(popUpPos)
 	// 显示
 	pPopUp.Show()
-
 }
 
 func (stapp *StApp) DestoryEntryTypeInfo(pPopUp **widget.PopUp) {
