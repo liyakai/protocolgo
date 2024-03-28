@@ -512,6 +512,11 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 	var entryOption *widget.Select
 	// var entryType *widget.Entry
 	var entryTypeSelect *logic.CompletionEntry
+	var entryDefault *widget.Select
+	containerDefaultComment := container.NewGridWithRows(1)
+	entryName := widget.NewEntry()
+	entryComment := widget.NewEntry()
+	entryIndex := widget.NewEntry()
 
 	if tabletype == logic.TableType_Message {
 		entryOption = widget.NewSelect([]string{"optional", "repeated"}, nil)
@@ -520,6 +525,10 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		} else {
 			entryOption.Selected = strRowUnit.EntryOption
 		}
+
+		// 枚举默认值
+		entryDefault = widget.NewSelect([]string{}, nil)
+		// entryDefault.SetPlaceHolder("Default Value...")
 
 		// 输入框
 		// entryType = widget.NewEntry()
@@ -531,9 +540,7 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		// 搜索框
 		searchFields := stapp.CoreMgr.GetAllUseableEntryTypeWithProtoType()
 		entryTypeSelect = logic.NewCompletionEntry(searchFields)
-		entryTypeSelect.ShowMouseMenu(true)
-
-		// 设置默认值
+		entryTypeSelect.ShowMouseMenu(true) // 不依靠鼠标事件了,这个没用了.
 		entryTypeSelect.SetPlaceHolder("Enter filed type...")
 		if strRowUnit.EntryType != "" {
 			entryTypeSelect.SetText(strRowUnit.EntryType)
@@ -551,6 +558,20 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 			}
 			entryTypeSelect.SetOptions(strMatches)
 			entryTypeSelect.ShowCompletion()
+
+			// 检查新值是否是枚举类型
+			containerDefaultComment.Objects = nil
+			entryDefault.SetOptions([]string{})
+			if stapp.CoreMgr.SearchTableListWithName(str) == logic.TableType_Enum {
+				entryDefault.SetOptions(stapp.CoreMgr.GetVarListOfEnum(entryTypeSelect.Text))
+				containerDefaultComment.Add(entryDefault)
+			}
+			containerDefaultComment.Add(entryComment)
+			containerDefaultComment.Refresh()
+		}
+
+		entryDefault.OnChanged = func(str string) {
+			entryDefault.SetOptions(stapp.CoreMgr.GetVarListOfEnum(entryTypeSelect.Text))
 		}
 		// 鼠标右键事件
 		entryTypeSelect.OnTappedSecondary = func(pe *fyne.PointEvent) {
@@ -562,19 +583,16 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 
 	}
 
-	entryName := widget.NewEntry()
 	entryName.SetPlaceHolder("Enter variable name...")
 	if strRowUnit.EntryName != "" {
 		entryName.SetText(strRowUnit.EntryName)
 	}
 
-	entryComment := widget.NewEntry()
 	entryComment.SetPlaceHolder("Comment...")
 	if strRowUnit.EntryComment != "" {
 		entryComment.SetText(strRowUnit.EntryComment)
 	}
 
-	entryIndex := widget.NewEntry()
 	entryIndex.SetText(strRowUnit.EntryIndex)
 
 	var oneRow *container.Split
@@ -583,13 +601,19 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		oneRowKeyValue.Offset = 0.35
 
 		oneRowOptionKeyValue := container.NewHSplit(entryOption, oneRowKeyValue)
-		oneRowOptionKeyValue.Offset = 0.05
+		oneRowOptionKeyValue.Offset = 0.15
 
 		oneRowOptionKeyValueIndex := container.NewHSplit(oneRowOptionKeyValue, entryIndex)
 		oneRowOptionKeyValueIndex.Offset = 0.95
 
-		oneRow = container.NewHSplit(oneRowOptionKeyValueIndex, entryComment)
-		oneRow.Offset = 0.75
+		if stapp.CoreMgr.SearchTableListWithName(entryTypeSelect.Text) == logic.TableType_Enum {
+			entryDefault.SetOptions(stapp.CoreMgr.GetVarListOfEnum(entryTypeSelect.Text))
+			// TODO 设置保存的值
+			containerDefaultComment.Add(entryDefault)
+		}
+		containerDefaultComment.Add(entryComment)
+		oneRow = container.NewHSplit(oneRowOptionKeyValueIndex, containerDefaultComment)
+		oneRow.Offset = 0.7
 	} else if tabletype == logic.TableType_Enum {
 		oneRowNameIndex := container.NewHSplit(entryName, entryIndex)
 		oneRowNameIndex.Offset = 0.9

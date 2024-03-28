@@ -583,3 +583,20 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 	}
 	return TableType_None
 }
+
+// 根据枚举类型获取枚举名字
+func (coremgr *CoreManager) GetVarListOfEnum(strEnumName string) []string {
+	enumElement := coremgr.GetEtreeElem(TableType_Enum, strEnumName)
+	if enumElement == nil {
+		logrus.Error("[GetEnumVar] failed for GetEtreeElem, strEnumName:", strEnumName)
+		return []string{}
+	}
+	result := []string{}
+	for _, cfgEnum := range enumElement.ChildElements() {
+		enumVar := cfgEnum.SelectAttr("EntryName")
+		if enumVar != nil && enumVar.Value != "" {
+			result = append(result, enumVar.Value)
+		}
+	}
+	return result
+}
