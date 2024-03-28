@@ -27,6 +27,17 @@ func CheckPositiveInteger(str string) bool {
 	return num > 0
 }
 
+// 检查字符串是否是自然数
+func CheckNaturalInteger(str string) bool {
+	num, err := strconv.Atoi(str)
+
+	if err != nil {
+		return false
+	}
+
+	return num >= 0
+}
+
 // 检查字符串是否以数字开头
 func CheckStartWithNum(str string) bool {
 	if len(str) > 0 {

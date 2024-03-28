@@ -417,6 +417,10 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 			if entryName != nil {
 				rowUnit.EntryName = entryName.Value
 			}
+			entryDefault := child.SelectAttr("EntryDefault")
+			if entryDefault != nil {
+				rowUnit.EntryDefault = entryDefault.Value
+			}
 			entryContent := child.SelectAttr("EntryComment")
 			if entryContent != nil {
 				rowUnit.EntryComment = entryContent.Value
@@ -608,7 +612,9 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 
 		if stapp.CoreMgr.SearchTableListWithName(entryTypeSelect.Text) == logic.TableType_Enum {
 			entryDefault.SetOptions(stapp.CoreMgr.GetVarListOfEnum(entryTypeSelect.Text))
-			// TODO 设置保存的值
+			if strRowUnit.EntryDefault != "" {
+				entryDefault.SetSelected(strRowUnit.EntryDefault)
+			}
 			containerDefaultComment.Add(entryDefault)
 		}
 		containerDefaultComment.Add(entryComment)
@@ -627,6 +633,7 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		EntryOption:  entryOption,
 		EntryType:    entryTypeSelect,
 		EntryName:    entryName,
+		EntryDefault: entryDefault,
 		EntryComment: entryComment,
 	}
 
@@ -764,10 +771,24 @@ func (stapp *StApp) CheckStUnit(stUnit logic.StUnit, bCreateNew bool) bool {
 
 	for _, rowComponents := range stUnit.RowList {
 		// 检查 EntryIndex 的合法性
-		if rowComponents.EntryIndex != nil && (rowComponents.EntryIndex.Text == "" || !utils.CheckPositiveInteger(rowComponents.EntryIndex.Text)) {
+		if rowComponents.EntryIndex != nil && (rowComponents.EntryIndex.Text == "") {
 			logrus.Error("CheckStUnit failed. EntryIndex: ", rowComponents.EntryIndex.Text)
 			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
 			return false
+		}
+
+		if stUnit.TableType == logic.TableType_Enum {
+			if !utils.CheckNaturalInteger(rowComponents.EntryIndex.Text) {
+				logrus.Error("CheckStUnit failed. EntryName: ", rowComponents.EntryName.Text)
+				dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
+				return false
+			}
+		} else if stUnit.TableType == logic.TableType_Message {
+			if !utils.CheckPositiveInteger(rowComponents.EntryIndex.Text) {
+				logrus.Error("CheckStUnit failed. EntryName: ", rowComponents.EntryName.Text)
+				dialog.ShowInformation("Error!", "EntryName["+rowComponents.EntryName.Text+"], the EntryIndex is invalid", *stapp.Window)
+				return false
+			}
 		}
 		// 检查 类型 的合法性
 		if rowComponents.EntryType != nil && (rowComponents.EntryType.Text == "" || strings.Contains(rowComponents.EntryType.Text, " ") || rowComponents.EntryType.Text == stUnit.UnitName || utils.CheckPositiveInteger(rowComponents.EntryType.Text) || utils.CheckStartWithNum(rowComponents.EntryType.Text)) {

@@ -268,6 +268,9 @@ func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
 		}
 		enum_atom.CreateAttr("EntryName", row.EntryName.Text)
 		enum_atom.CreateAttr("EntryIndex", row.EntryIndex.Text)
+		if row.EntryDefault != nil {
+			enum_atom.CreateAttr("EntryDefault", row.EntryDefault.Selected)
+		}
 		enum_atom.CreateAttr("EntryComment", row.EntryComment.Text)
 	}
 	// Stapp.EnumTableList.Append(editMsg.MsgName)

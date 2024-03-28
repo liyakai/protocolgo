@@ -14,6 +14,7 @@ type StRowUnit struct {
 	// EntryType   *widget.Entry
 	EntryType    *CompletionEntry
 	EntryName    *widget.Entry
+	EntryDefault *widget.Select
 	EntryComment *widget.Entry
 }
 
@@ -22,6 +23,7 @@ type StStrRowUnit struct {
 	EntryOption  string
 	EntryType    string
 	EntryName    string
+	EntryDefault string
 	EntryComment string
 }
 
