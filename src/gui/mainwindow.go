@@ -777,6 +777,7 @@ func (stapp *StApp) CheckStUnit(stUnit logic.StUnit, bCreateNew bool) bool {
 			return false
 		}
 
+		// 检查索引值合法性
 		if stUnit.TableType == logic.TableType_Enum {
 			if !utils.CheckNaturalInteger(rowComponents.EntryIndex.Text) {
 				logrus.Error("CheckStUnit failed. EntryName: ", rowComponents.EntryName.Text)
@@ -800,6 +801,12 @@ func (stapp *StApp) CheckStUnit(stUnit logic.StUnit, bCreateNew bool) bool {
 		if rowComponents.EntryName != nil && (rowComponents.EntryName.Text == "" || strings.Contains(rowComponents.EntryName.Text, " ") || utils.CheckPositiveInteger(rowComponents.EntryName.Text) || utils.CheckStartWithNum(rowComponents.EntryName.Text)) {
 			logrus.Error("CheckStUnit failed. EntryName: ", rowComponents.EntryName.Text)
 			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryName is invalid", *stapp.Window)
+			return false
+		}
+		// 检查默认值合法性
+		if rowComponents.EntryDefault != nil && stapp.CoreMgr.SearchTableListWithName(rowComponents.EntryType.Text) == logic.TableType_Enum && (rowComponents.EntryDefault.Selected == "" || strings.Contains(rowComponents.EntryDefault.Selected, " ") || utils.CheckPositiveInteger(rowComponents.EntryDefault.Selected) || utils.CheckStartWithNum(rowComponents.EntryDefault.Selected)) {
+			logrus.Error("CheckStUnit failed. EntryIndex: ", rowComponents.EntryIndex.Text, ",EntryName: ", rowComponents.EntryName.Text)
+			dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryDefault is invalid", *stapp.Window)
 			return false
 		}
 	}
