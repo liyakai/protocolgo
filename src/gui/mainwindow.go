@@ -361,6 +361,7 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 		selectSourceServer.Selected = firstFullName
 		selectTargetServer.Selected = secondFullName
 	}
+
 	selectServer := container.NewHSplit(selectSourceServer, selectTargetServer)
 	// 创建输入框
 	inputUnitName := widget.NewEntry()
@@ -370,6 +371,28 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 		inputUnitName.TextStyle.Bold = true
 		// inputUnitName.Disable()
 	}
+
+	// 如果下拉框修改了,则更新inputUnitName名字.[互相联动]
+	selectSourceServer.OnChanged = func(strSourceName string) {
+		inputUnitName.SetText(stapp.CoreMgr.GetProtoNameFromSourceTargetServer(selectSourceServer.Selected, selectTargetServer.Selected, inputUnitName.Text))
+		inputUnitName.Refresh()
+	}
+	selectTargetServer.OnChanged = func(strTargetName string) {
+		inputUnitName.SetText(stapp.CoreMgr.GetProtoNameFromSourceTargetServer(selectSourceServer.Selected, selectTargetServer.Selected, inputUnitName.Text))
+		inputUnitName.Refresh()
+	}
+	// 如果输入框改了,则自动修改下拉框.[互相联动]
+	inputUnitName.OnChanged = func(strProtoName string) {
+		isSucess, firstFullName, secondFullName := stapp.CoreMgr.DetectFullNameByProtoName(strProtoName)
+		if isSucess {
+			logrus.Info("[EditUnit] inputUnitName OnChanged. strProtoName:", strProtoName, " firstFullName:", firstFullName, ",secondFullName:", secondFullName)
+			selectSourceServer.Selected = firstFullName
+			selectTargetServer.Selected = secondFullName
+			selectSourceServer.Refresh()
+			selectTargetServer.Refresh()
+		}
+	}
+
 	selectSeerverInputName := container.NewHSplit(selectServer, inputUnitName)
 	selectSeerverInputName.Offset = 0.2
 	if tabletype == logic.TableType_Enum {

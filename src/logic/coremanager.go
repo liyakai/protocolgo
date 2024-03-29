@@ -183,6 +183,28 @@ func (Stapp *CoreManager) GetFullServerName(shortName string, isClientShort bool
 	return result
 }
 
+// 获取客户端的简称
+func (Stapp *CoreManager) GetClientShortName() (bool, string) {
+	configServerName := Stapp.GetConfigServerName()
+	if configServerName == nil {
+		logrus.Error("[GetConfigFullServerName] Failed for GetConfigServerName failed.")
+		return false, ""
+	}
+	for _, cfgServer := range configServerName.ChildElements() {
+		cfgIsClient := cfgServer.SelectAttr("IsClient")
+		if cfgIsClient != nil && cfgIsClient.Value != "" && strings.ToLower(cfgIsClient.Value) == "true" {
+			eleShortName := cfgServer.SelectAttr("ClientShortName")
+			if eleShortName == nil {
+				logrus.Error("[GetConfigFullServerName] Failed for ClientShortName is lost.")
+				return false, ""
+			}
+			return true, eleShortName.Value
+		}
+	}
+	logrus.Error("[GetConfigFullServerName] Failed for IsClient is lost.")
+	return false, ""
+}
+
 // 根据协议名字推测服务器全名
 func (Stapp *CoreManager) DetectFullNameByProtoName(protoName string) (result bool, firstName string, secondName string) {
 	parts := strings.Split(protoName, "_")
@@ -195,11 +217,17 @@ func (Stapp *CoreManager) DetectFullNameByProtoName(protoName string) (result bo
 		logrus.Error("[DetectFullNameByProtoName] Failed for invalid protoName:", protoName)
 		return false, "", ""
 	}
+	lenNamePre := len(strNamePre)
 	bIsClientProto := false
-	if strNamePre[0] == 'C' {
+	result, strClientSHortName := Stapp.GetClientShortName()
+	if result == false {
+		logrus.Error("[DetectFullNameByProtoName] Failed for GetClientShortName:", protoName)
+		return false, "", ""
+	}
+	if lenNamePre == 2 && (string(strNamePre[0]) == strClientSHortName || string(strNamePre[1]) == strClientSHortName) {
 		bIsClientProto = true
 	}
-	lenNamePre := len(strNamePre)
+
 	if bIsClientProto {
 		if lenNamePre != 2 {
 			logrus.Warn("[DetectFullNameByProtoName] strNamePre is not normal. protoName:", protoName, ", strNamePre:", strNamePre)
@@ -216,6 +244,77 @@ func (Stapp *CoreManager) DetectFullNameByProtoName(protoName string) (result bo
 	secondShort := strNamePre[lenNamePre/2:]
 
 	return true, Stapp.GetFullServerName(firstShort, bIsClientProto), Stapp.GetFullServerName(secondShort, bIsClientProto)
+}
+
+// 根据全名获取协议名前缀
+func (Stapp *CoreManager) GetProtoPreName(strSourceFullName string, strTargetFulleName string) (bool, string) {
+	configServerName := Stapp.GetConfigServerName()
+	if configServerName == nil {
+		logrus.Error("[GetProtoPreName] Failed for GetConfigServerName failed.")
+		return false, ""
+	}
+	bIsClient := false
+	strSourceShortName := ""
+	strTargetShortName := ""
+	for _, cfgServer := range configServerName.ChildElements() {
+		eleFullName := cfgServer.SelectAttr("FullName")
+		cfgIsClient := cfgServer.SelectAttr("IsClient")
+		if eleFullName == nil {
+			logrus.Error("[GetProtoPreName] Failed for FullName is lost.")
+			return false, ""
+		}
+		if cfgIsClient != nil && (eleFullName.Value == strSourceFullName || eleFullName.Value == strTargetFulleName) && cfgIsClient.Value != "" && strings.ToLower(cfgIsClient.Value) == "true" {
+			bIsClient = true
+			logrus.Debug("[GetProtoPreName] Found client end.")
+			break
+		}
+	}
+	for _, cfgServer := range configServerName.ChildElements() {
+		eleFullName := cfgServer.SelectAttr("FullName")
+		eleClientShortName := cfgServer.SelectAttr("ClientShortName")
+		eleServerShortName := cfgServer.SelectAttr("ServerShortName")
+		if eleFullName == nil || eleClientShortName == nil || eleServerShortName == nil {
+			logrus.Error("[GetProtoPreName] Failed for FullName is lost.")
+			return false, ""
+		}
+		if strSourceFullName == eleFullName.Value {
+			if bIsClient {
+				strSourceShortName = eleClientShortName.Value
+			} else {
+				strSourceShortName = eleServerShortName.Value
+			}
+		}
+		if strTargetFulleName == eleFullName.Value {
+			if bIsClient {
+				strTargetShortName = eleClientShortName.Value
+			} else {
+				strTargetShortName = eleServerShortName.Value
+			}
+		}
+	}
+	return true, strSourceShortName + strTargetShortName + "_"
+}
+
+// 根据服务器全名和协议名字产生/矫正协议名字
+func (Stapp *CoreManager) GetProtoNameFromSourceTargetServer(strSourceFullName string, strTargetFulleName string, strProtoName string) string {
+	result, strShortName := Stapp.GetProtoPreName(strSourceFullName, strTargetFulleName)
+	if !result {
+		logrus.Error("[GetProtoNameFromSourceTargetServer] Failed for GetProtoPreName failed.")
+		return ""
+	}
+	if strProtoName == "" {
+		return strShortName
+	}
+	parts := strings.Split(strProtoName, "_")
+	if len(parts) < 2 {
+		return strShortName
+	}
+	for i := 1; i < len(parts); i++ {
+		strShortName = strShortName + parts[i]
+	}
+	logrus.Info("[GetProtoNameFromSourceTargetServer] strSourceFullName:", strSourceFullName, ", strTargetFulleName:", strTargetFulleName, ",strProtoName:", strProtoName, ",strShortName:", strShortName, ",parts:", parts)
+	return strShortName
+
 }
 
 func (Stapp *CoreManager) SaveConfigToFile() bool {
