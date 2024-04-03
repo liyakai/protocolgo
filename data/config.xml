@@ -1,7 +1,7 @@
 <config>
     <servershort>
         <!--服务器名称与简称映射-->
-        <servershort FullName="客户端[Client]" ClientShortName="C" ServerShortName="C"/>
+        <servershort FullName="客户端[Client]" ClientShortName="C" ServerShortName="C" IsClient="true"/>
         <servershort FullName="场景服[GameServer]" ClientShortName="S" ServerShortName="GS"/>
         <servershort FullName="MsgServer"  ClientShortName="M" ServerShortName="MS"/>
         <servershort FullName="PublicServer" ClientShortName="P" ServerShortName="PS"/>

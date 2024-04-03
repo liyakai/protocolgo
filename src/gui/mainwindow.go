@@ -267,14 +267,19 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 
 	}
 	searchEntry.OnSubmitted = func(str string) {
+		// 找出搜索内容对应的key
+		strListName := stapp.CoreMgr.GetListNameBySearchName(str)
+		if strListName == "" {
+			logrus.Info("[searchEntry] Cannot find the list name by str:", str)
+		}
 		// 设置焦点
-		eTableType := stapp.CoreMgr.SearchTableListWithName(str)
+		eTableType := stapp.CoreMgr.SearchTableListWithName(strListName)
 		if eTableType == logic.TableType_Enum {
 			stapp.tables.SelectIndex(0)
-			stapp.CoreMgr.EnumTableList.Set([]string{str})
+			stapp.CoreMgr.EnumTableList.Set([]string{strListName})
 		} else if eTableType == logic.TableType_Message {
 			stapp.tables.SelectIndex(1)
-			stapp.CoreMgr.MessageTableList.Set([]string{str})
+			stapp.CoreMgr.MessageTableList.Set([]string{strListName})
 		}
 	}
 
