@@ -18,23 +18,30 @@ const (
 	TableType_None ETableType = iota + 1
 	TableType_Enum
 	TableType_Message
+	TableType_Data
+	TableType_Protocol
+	TableType_RPC
 )
 
 type CoreManager struct {
-	DocEtree         *etree.Document     // protocol 数据
-	XmlFilePath      string              // 打开的Xml文件路径
-	Config           *etree.Document     // 配置数据
-	EnumTableList    binding.StringList  // enum 数据源
-	MessageTableList binding.StringList  // message 数据源
-	SearchMap        map[string]string   // 所有可搜索元素到列表名字的映射
-	SearchBuffer     []string            // 所有可所有元素列表
-	References       map[string][]string // 字段的依赖列表
+	DocEtree      *etree.Document     // protocol 数据
+	XmlFilePath   string              // 打开的Xml文件路径
+	Config        *etree.Document     // 配置数据
+	EnumTableList binding.StringList  // enum 数据源
+	DataTableList binding.StringList  // data 数据源
+	PtcTableList  binding.StringList  // ptc 数据源
+	RpcTableList  binding.StringList  // rpc 数据源
+	SearchMap     map[string]string   // 所有可搜索元素到列表名字的映射
+	SearchBuffer  []string            // 所有可所有元素列表
+	References    map[string][]string // 字段的依赖列表
 }
 
 func (Stapp *CoreManager) Init() {
 	// 创建一个列表的数据源
 	Stapp.EnumTableList = binding.NewStringList()
-	Stapp.MessageTableList = binding.NewStringList()
+	Stapp.DataTableList = binding.NewStringList()
+	Stapp.PtcTableList = binding.NewStringList()
+	Stapp.RpcTableList = binding.NewStringList()
 
 	configXmlPath := utils.GetWorkRootPath() + "/data/config.xml"
 	Stapp.ReadConfigFromFile(configXmlPath)
@@ -335,14 +342,7 @@ func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
 		return false
 	}
 
-	var strRoot string
-	if stUnit.TableType == TableType_Enum {
-		strRoot = "enum"
-	} else if stUnit.TableType == TableType_Message {
-		strRoot = "message"
-	} else {
-		strRoot = "other"
-	}
+	strRoot := Stapp.GetEtreeRootName(stUnit.TableType)
 
 	// 先查找是否有枚举的分类
 	msg_catagory := Stapp.DocEtree.FindElement(strRoot)
@@ -386,6 +386,12 @@ func (Stapp *CoreManager) GetEtreeRootName(tableType ETableType) string {
 		strUnitType = "enum"
 	} else if tableType == TableType_Message {
 		strUnitType = "message"
+	} else if tableType == TableType_Data {
+		strUnitType = "data"
+	} else if tableType == TableType_Protocol {
+		strUnitType = "protocol"
+	} else if tableType == TableType_RPC {
+		strUnitType = "rpc"
 	}
 	return strUnitType
 }
@@ -418,22 +424,38 @@ func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) b
 func (Stapp *CoreManager) GetTableListByType(tabletype ETableType) *binding.StringList {
 	if tabletype == TableType_Enum {
 		return &Stapp.EnumTableList
+	} else if tabletype == TableType_Data {
+		return &Stapp.DataTableList
+	} else if tabletype == TableType_Protocol {
+		return &Stapp.PtcTableList
+	} else if tabletype == TableType_RPC {
+		return &Stapp.RpcTableList
 	} else {
-		return &Stapp.MessageTableList
+		return &Stapp.RpcTableList
 	}
 }
 
 func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
 	if tabletype == TableType_Enum {
 		return "enum list:"
+	} else if tabletype == TableType_Data {
+		return "data list:"
+	} else if tabletype == TableType_Protocol {
+		return "protocol list:"
 	} else {
-		return "message list:"
+		return "rpc list:"
 	}
 }
 
 func (Stapp *CoreManager) GetEditTableTitle(tabletype ETableType, name string) string {
 	if tabletype == TableType_Enum {
 		return "Edit Enum:" + name
+	} else if tabletype == TableType_Data {
+		return "Edit Data:" + name
+	} else if tabletype == TableType_Protocol {
+		return "Edit Protocol:" + name
+	} else if tabletype == TableType_RPC {
+		return "Edit Rpc:" + name
 	} else {
 		return "Edit Message:" + name
 	}
@@ -461,14 +483,29 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 		logrus.Error("SyncListWithETree failed. Stapp.DocEtree is nil, open the xml")
 		return false
 	}
+	Stapp.SearchMap = map[string]string{}
+	Stapp.SyncListWithETreeCatagoryEnum()
+	Stapp.SyncListWithETreeCatagoryProtocol()
 
+	Stapp.SearchBuffer = []string{}
+	for key, _ := range Stapp.SearchMap {
+		Stapp.SearchBuffer = append(Stapp.SearchBuffer, key)
+		// logrus.Debug("SyncListWithETree key:", key)
+	}
+
+	logrus.Info("SyncListWithETree done.")
+	return true
+}
+
+func (Stapp *CoreManager) SyncListWithETreeCatagoryEnum() {
 	// 先查找是否有 enum 的分类
 	enum_catagory := Stapp.DocEtree.FindElement("enum")
 	if enum_catagory == nil {
 		enum_catagory = Stapp.DocEtree.CreateElement("enum")
 	}
 	newEnumListString := []string{}
-	Stapp.SearchMap = map[string]string{}
+	Stapp.References = map[string][]string{}
+
 	// 遍历子元素
 	for _, EnumClass := range enum_catagory.ChildElements() {
 		newEnumListString = append(newEnumListString, EnumClass.Tag)
@@ -508,66 +545,63 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 
 	}
 	Stapp.EnumTableList.Set(newEnumListString)
+}
 
-	// 先查找是否有message的分类
-	msg_catagory := Stapp.DocEtree.FindElement("message")
-	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("message")
+func (Stapp *CoreManager) SyncListWithETreeCatagoryData() {
+}
+func (Stapp *CoreManager) SyncListWithETreeCatagoryProtocol() {
+	// 先查找是否有 protocol 的分类
+	ptc_catagory := Stapp.DocEtree.FindElement("protocol")
+	if ptc_catagory == nil {
+		ptc_catagory = Stapp.DocEtree.CreateElement("protocol")
 	}
-	newMessageListString := []string{}
-	Stapp.References = map[string][]string{}
+	newPtcListString := []string{}
+
 	// 遍历子元素
-	for _, MsgClass := range msg_catagory.ChildElements() {
-		newMessageListString = append(newMessageListString, MsgClass.Tag)
+	for _, PtcClass := range ptc_catagory.ChildElements() {
+		newPtcListString = append(newPtcListString, PtcClass.Tag)
 		// 枚举类名字映射
-		Stapp.SearchMap[MsgClass.Tag] = MsgClass.Tag
-		Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(MsgClass.Tag)] = MsgClass.Tag
-		Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(MsgClass.Tag)] = MsgClass.Tag
+		Stapp.SearchMap[PtcClass.Tag] = PtcClass.Tag
+		Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(PtcClass.Tag)] = PtcClass.Tag
+		Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(PtcClass.Tag)] = PtcClass.Tag
 		// 将注释映射
-		for _, child := range MsgClass.Child {
+		for _, child := range PtcClass.Child {
 			// 检查该子元素是否为注释
 			if comment, ok := child.(*etree.Comment); ok {
 				if comment.Data != "" {
-					Stapp.SearchMap["["+MsgClass.Tag+"]"+comment.Data] = MsgClass.Tag
-					Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(comment.Data)] = MsgClass.Tag
-					Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(comment.Data)] = MsgClass.Tag
+					Stapp.SearchMap["["+PtcClass.Tag+"]"+comment.Data] = PtcClass.Tag
+					Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(comment.Data)] = PtcClass.Tag
+					Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(comment.Data)] = PtcClass.Tag
 				}
 				break
 			}
 		}
-		for _, MsgClassConent := range MsgClass.ChildElements() {
-			entryName := MsgClassConent.SelectAttr("EntryName")
+		for _, PtcClassConent := range PtcClass.ChildElements() {
+			entryName := PtcClassConent.SelectAttr("EntryName")
 			if entryName != nil && entryName.Value != "" {
-				Stapp.SearchMap["["+MsgClass.Tag+"]"+entryName.Value] = MsgClass.Tag
-				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(entryName.Value)] = MsgClass.Tag
-				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(entryName.Value)] = MsgClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+entryName.Value] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(entryName.Value)] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(entryName.Value)] = PtcClass.Tag
 				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
 			}
-			entryComment := MsgClassConent.SelectAttr("EntryComment")
+			entryComment := PtcClassConent.SelectAttr("EntryComment")
 			if entryComment != nil && entryComment.Value != "" {
-				Stapp.SearchMap["["+MsgClass.Tag+"]"+entryComment.Value] = MsgClass.Tag
-				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToLower(entryComment.Value)] = MsgClass.Tag
-				Stapp.SearchMap["["+MsgClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = MsgClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+entryComment.Value] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(entryComment.Value)] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = PtcClass.Tag
 				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
 			}
 			// 记录依赖
-			entryType := MsgClassConent.SelectAttr("EntryType")
+			entryType := PtcClassConent.SelectAttr("EntryType")
 			if entryType != nil && entryType.Value != "" && !Stapp.CheckProtoType(entryType.Value) {
-				Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], MsgClass.Tag)
+				Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], PtcClass.Tag)
 				// logrus.Debug("SyncListWithETree init References. Value:", entryType.Value, ", MsgClass.Tag:", MsgClass.Tag, ",--->Stapp.References:", Stapp.References)
 			}
 		}
 	}
-	Stapp.MessageTableList.Set(newMessageListString)
-
-	Stapp.SearchBuffer = []string{}
-	for key, _ := range Stapp.SearchMap {
-		Stapp.SearchBuffer = append(Stapp.SearchBuffer, key)
-		// logrus.Debug("SyncListWithETree key:", key)
-	}
-
-	logrus.Info("SyncListWithETree done.")
-	return true
+	Stapp.PtcTableList.Set(newPtcListString)
+}
+func (Stapp *CoreManager) SyncListWithETreeCatagoryRpc() {
 }
 
 // 检查name 是否重复
@@ -674,14 +708,34 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 		return TableType_Enum
 	}
 
-	msg_catagory := Stapp.DocEtree.FindElement("message")
+	data_catagory := Stapp.DocEtree.FindElement("data")
+	if data_catagory == nil {
+		data_catagory = Stapp.DocEtree.CreateElement("data")
+	}
+	// 查找 data 名字
+	data_uint := data_catagory.FindElement(name)
+	if data_uint != nil {
+		return TableType_Data
+	}
+
+	msg_catagory := Stapp.DocEtree.FindElement("protocol")
 	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("message")
+		msg_catagory = Stapp.DocEtree.CreateElement("protocol")
 	}
 	// 查找 message 名字
 	msg_uint := msg_catagory.FindElement(name)
 	if msg_uint != nil {
 		return TableType_Message
+	}
+
+	rpc_catagory := Stapp.DocEtree.FindElement("rpc")
+	if rpc_catagory == nil {
+		rpc_catagory = Stapp.DocEtree.CreateElement("rpc")
+	}
+	// 查找 message 名字
+	rpc_uint := rpc_catagory.FindElement(name)
+	if rpc_uint != nil {
+		return TableType_RPC
 	}
 	return TableType_None
 }

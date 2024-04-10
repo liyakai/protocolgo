@@ -1,5 +1,69 @@
 <enum>
+    <EnumErrorCode>
+        <!--错误码枚举-->
+        <EnumErrorCode EntryName="Success" EntryIndex="1" EntryComment="成功"/>
+        <EnumErrorCode EntryName="Failed" EntryIndex="2" EntryComment="莫名失败"/>
+    </EnumErrorCode>
     <NewEnum>
-        <name Attr="attr"/>
+        <!--TR
+TY-->
+        <NewEnum EntryName="enum_1" EntryIndex="1" EntryComment="你好吗"/>
+        <NewEnum EntryName="enum_2" EntryIndex="2" EntryComment=""/>
+        <NewEnum EntryName="enum_3" EntryIndex="3" EntryComment=""/>
+        <NewEnum EntryName="enum_None" EntryIndex="0" EntryComment=""/>
+        <NewEnum EntryName="enum_4" EntryIndex="4" EntryComment=""/>
+        <NewEnum EntryName="enum_5" EntryIndex="5" EntryComment=""/>
     </NewEnum>
 </enum>
+<data>
+    <Role>
+        <!---->
+        <Role EntryOption="optional" EntryType="fixed64" EntryName="roleid" EntryIndex="1" EntryDefault="" EntryComment="角色ID"/>
+        <Role EntryOption="optional" EntryType="string" EntryName="name" EntryIndex="2" EntryDefault="" EntryComment="角色名字"/>
+    </Role>
+</data>
+<protocol>
+    <Login>
+        <!--中文注释-->
+    </Login>
+    <CS_Logout>
+        <!--中国人-->
+    </CS_Logout>
+    <CM_Login2>
+        <!---->
+        <CM_Login2 EntryOption="optional" EntryType="uint32" EntryName="asdfas" EntryIndex="1" EntryComment="好个屁"/>
+        <CM_Login2 EntryOption="optional" EntryType="NewEnum" EntryName="enum_2" EntryIndex="2" EntryComment=""/>
+    </CM_Login2>
+    <CS_Login2>
+        <!---->
+        <CS_Login2 EntryOption="optional" EntryType="uint32" EntryName="asdfas" EntryIndex="1" EntryDefault="" EntryComment="好个屁"/>
+        <CS_Login2 EntryOption="optional" EntryType="EnumErrorCode" EntryName="enum_2" EntryIndex="2" EntryDefault="Success" EntryComment=""/>
+    </CS_Login2>
+    <GSMS_Login>
+        <!---->
+        <GSMS_Login EntryOption="optional" EntryType="uint32" EntryName="asdfas" EntryIndex="1" EntryDefault="" EntryComment="好个屁"/>
+        <GSMS_Login EntryOption="repeated" EntryType="NewEnum" EntryName="enum_1" EntryIndex="3" EntryDefault="enum_1" EntryComment=""/>
+    </GSMS_Login>
+    <ZGPS_Login>
+        <!---->
+        <ZGPS_Login EntryOption="optional" EntryType="uint32" EntryName="asdfas" EntryIndex="1" EntryDefault="" EntryComment="好"/>
+        <ZGPS_Login EntryOption="optional" EntryType="NewEnum" EntryName="enum_2" EntryIndex="2" EntryDefault="enum_1" EntryComment=""/>
+    </ZGPS_Login>
+    <CS_Login>
+        <!---->
+        <CS_Login EntryOption="optional" EntryType="uint32" EntryName="asdfas" EntryIndex="1" EntryDefault="" EntryComment="好个屁"/>
+        <CS_Login EntryOption="optional" EntryType="NewEnum" EntryName="enum_2" EntryIndex="2" EntryDefault="enum_None" EntryComment=""/>
+    </CS_Login>
+    <CM_Login>
+        <!---->
+        <CM_Login EntryOption="optional" EntryType="uint32" EntryName="asdfas" EntryIndex="1" EntryDefault="" EntryComment="好个"/>
+        <CM_Login EntryOption="optional" EntryType="EnumErrorCode" EntryName="enum_2" EntryIndex="2" EntryDefault="Success" EntryComment="登录错误码"/>
+    </CM_Login>
+    <Login2>
+        <!---->
+        <Login2 EntryOption="optional" EntryType="uint32" EntryName="asdfas" EntryIndex="1" EntryDefault="" EntryComment="好个"/>
+        <Login2 EntryOption="optional" EntryType="EnumErrorCode" EntryName="enum_2" EntryIndex="2" EntryDefault="Success" EntryComment="登录错误码"/>
+    </Login2>
+</protocol>
+<rpc/>
+<message/>

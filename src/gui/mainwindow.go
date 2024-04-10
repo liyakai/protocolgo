@@ -207,7 +207,9 @@ func (stapp *StApp) CreateMainContainer() {
 	// 创建下部的标签页容器
 	stapp.tables = container.NewAppTabs(
 		container.NewTabItem("Enum", stapp.CreateTab(logic.TableType_Enum)),
-		container.NewTabItem("Message", stapp.CreateTab(logic.TableType_Message)),
+		container.NewTabItem("Data", stapp.CreateTab(logic.TableType_Data)),
+		container.NewTabItem("Ptc", stapp.CreateTab(logic.TableType_Protocol)),
+		container.NewTabItem("Rpc", stapp.CreateTab(logic.TableType_RPC)),
 	)
 
 	// 使用垂直布局将上部和下部容器组合在一起
@@ -255,8 +257,12 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 				eTableType := stapp.CoreMgr.SearchTableListWithName(strEntryName)
 				if eTableType == logic.TableType_Enum {
 					stapp.tables.SelectIndex(0)
-				} else if eTableType == logic.TableType_Message {
+				} else if eTableType == logic.TableType_Data {
 					stapp.tables.SelectIndex(1)
+				} else if eTableType == logic.TableType_Protocol {
+					stapp.tables.SelectIndex(2)
+				} else if eTableType == logic.TableType_RPC {
+					stapp.tables.SelectIndex(3)
 				}
 			}
 			searchEntry.ShowCompletion()
@@ -277,9 +283,15 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 		if eTableType == logic.TableType_Enum {
 			stapp.tables.SelectIndex(0)
 			stapp.CoreMgr.EnumTableList.Set([]string{strListName})
-		} else if eTableType == logic.TableType_Message {
+		} else if eTableType == logic.TableType_Data {
 			stapp.tables.SelectIndex(1)
-			stapp.CoreMgr.MessageTableList.Set([]string{strListName})
+			stapp.CoreMgr.DataTableList.Set([]string{strListName})
+		} else if eTableType == logic.TableType_Protocol {
+			stapp.tables.SelectIndex(2)
+			stapp.CoreMgr.PtcTableList.Set([]string{strListName})
+		} else if eTableType == logic.TableType_RPC {
+			stapp.tables.SelectIndex(3)
+			stapp.CoreMgr.RpcTableList.Set([]string{strListName})
 		}
 	}
 
@@ -331,9 +343,7 @@ func (stapp *StApp) CreateTab(tabletype logic.ETableType) fyne.CanvasObject {
 func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.CanvasObject {
 	label := widget.NewLabel(stapp.CoreMgr.GetLableStingByType(tabletype))
 	button := widget.NewButton("Add new", func() {
-		// label.SetText("按钮被按下了!")
 		stapp.EditUnit(tabletype, "")
-		// stapp.CoreMgr.AddNewEnum("NewEnum")
 	})
 	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
 	topContainer := container.NewHSplit(container.NewStack(label), button)
@@ -402,7 +412,11 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	selectSeerverInputName.Offset = 0.2
 	if tabletype == logic.TableType_Enum {
 		inputInfoContainer.Add(inputUnitName)
-	} else if tabletype == logic.TableType_Message {
+	} else if tabletype == logic.TableType_Data {
+		inputInfoContainer.Add(inputUnitName)
+	} else if tabletype == logic.TableType_Protocol {
+		inputInfoContainer.Add(selectSeerverInputName)
+	} else if tabletype == logic.TableType_RPC {
 		inputInfoContainer.Add(selectSeerverInputName)
 	}
 
@@ -550,7 +564,7 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 	entryComment := widget.NewEntry()
 	entryIndex := widget.NewEntry()
 
-	if tabletype == logic.TableType_Message {
+	if tabletype == logic.TableType_Protocol || tabletype == logic.TableType_Data || tabletype == logic.TableType_RPC {
 		entryOption = widget.NewSelect([]string{"optional", "repeated"}, nil)
 		if strRowUnit.EntryOption == "" {
 			entryOption.Selected = "optional"
@@ -628,7 +642,12 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 	entryIndex.SetText(strRowUnit.EntryIndex)
 
 	var oneRow *container.Split
-	if tabletype == logic.TableType_Message {
+	if tabletype == logic.TableType_Enum {
+		oneRowNameIndex := container.NewHSplit(entryName, entryIndex)
+		oneRowNameIndex.Offset = 0.9
+		oneRow = container.NewHSplit(oneRowNameIndex, entryComment)
+		oneRow.Offset = 0.6
+	} else if tabletype == logic.TableType_Protocol || tabletype == logic.TableType_Data || tabletype == logic.TableType_RPC {
 		oneRowKeyValue := container.NewHSplit(entryTypeSelect, entryName)
 		oneRowKeyValue.Offset = 0.35
 
@@ -648,11 +667,6 @@ func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit 
 		containerDefaultComment.Add(entryComment)
 		oneRow = container.NewHSplit(oneRowOptionKeyValueIndex, containerDefaultComment)
 		oneRow.Offset = 0.7
-	} else if tabletype == logic.TableType_Enum {
-		oneRowNameIndex := container.NewHSplit(entryName, entryIndex)
-		oneRowNameIndex.Offset = 0.9
-		oneRow = container.NewHSplit(oneRowNameIndex, entryComment)
-		oneRow.Offset = 0.6
 	}
 
 	// 创建一个新的RowComponents实例并保存到列表中,加入列表,方便获取数值
@@ -759,7 +773,7 @@ func (stapp *StApp) CreateEntryReferenceListCanvas(name string) *fyne.Container 
 			o.(*TableListLabel).Bind(i.(binding.String))
 			o.(*TableListLabel).data = i.(binding.String)
 			o.(*TableListLabel).app = stapp
-			o.(*TableListLabel).tabletype = logic.TableType_Message
+			o.(*TableListLabel).tabletype = logic.TableType_Protocol
 		},
 	)
 	// 使用垂直布局将上部和下部容器组合在一起
@@ -812,7 +826,7 @@ func (stapp *StApp) CheckStUnit(stUnit logic.StUnit, bCreateNew bool) bool {
 				dialog.ShowInformation("Error!", "Index["+rowComponents.EntryIndex.Text+"], the EntryIndex is invalid", *stapp.Window)
 				return false
 			}
-		} else if stUnit.TableType == logic.TableType_Message {
+		} else if stUnit.TableType == logic.TableType_Protocol {
 			if !utils.CheckPositiveInteger(rowComponents.EntryIndex.Text) {
 				logrus.Error("CheckStUnit failed. EntryName: ", rowComponents.EntryName.Text)
 				dialog.ShowInformation("Error!", "EntryName["+rowComponents.EntryName.Text+"], the EntryIndex is invalid", *stapp.Window)
