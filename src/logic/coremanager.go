@@ -417,6 +417,8 @@ func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) b
 
 	Stapp.SyncListWithETree()
 
+	Stapp.SaveConfigToFile()
+
 	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 	return false
 }
@@ -484,8 +486,11 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 		return false
 	}
 	Stapp.SearchMap = map[string]string{}
+	Stapp.References = map[string][]string{}
 	Stapp.SyncListWithETreeCatagoryEnum()
+	Stapp.SyncListWithETreeCatagoryData()
 	Stapp.SyncListWithETreeCatagoryProtocol()
+	Stapp.SyncListWithETreeCatagoryRpc()
 
 	Stapp.SearchBuffer = []string{}
 	for key, _ := range Stapp.SearchMap {
@@ -504,7 +509,6 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryEnum() {
 		enum_catagory = Stapp.DocEtree.CreateElement("enum")
 	}
 	newEnumListString := []string{}
-	Stapp.References = map[string][]string{}
 
 	// 遍历子元素
 	for _, EnumClass := range enum_catagory.ChildElements() {
@@ -548,9 +552,59 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryEnum() {
 }
 
 func (Stapp *CoreManager) SyncListWithETreeCatagoryData() {
+	// 先查找是否有 protocol 的分类
+	data_catagory := Stapp.DocEtree.FindElement("data")
+	if data_catagory == nil {
+		data_catagory = Stapp.DocEtree.CreateElement("data")
+	}
+	newDataListString := []string{}
+
+	// 遍历子元素
+	for _, DataClass := range data_catagory.ChildElements() {
+		newDataListString = append(newDataListString, DataClass.Tag)
+		// 枚举类名字映射
+		Stapp.SearchMap[DataClass.Tag] = DataClass.Tag
+		Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToLower(DataClass.Tag)] = DataClass.Tag
+		Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToUpper(DataClass.Tag)] = DataClass.Tag
+		// 将注释映射
+		for _, child := range DataClass.Child {
+			// 检查该子元素是否为注释
+			if comment, ok := child.(*etree.Comment); ok {
+				if comment.Data != "" {
+					Stapp.SearchMap["["+DataClass.Tag+"]"+comment.Data] = DataClass.Tag
+					Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToLower(comment.Data)] = DataClass.Tag
+					Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToUpper(comment.Data)] = DataClass.Tag
+				}
+				break
+			}
+		}
+		for _, PtcClassConent := range DataClass.ChildElements() {
+			entryName := PtcClassConent.SelectAttr("EntryName")
+			if entryName != nil && entryName.Value != "" {
+				Stapp.SearchMap["["+DataClass.Tag+"]"+entryName.Value] = DataClass.Tag
+				Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToLower(entryName.Value)] = DataClass.Tag
+				Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToUpper(entryName.Value)] = DataClass.Tag
+				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
+			}
+			entryComment := PtcClassConent.SelectAttr("EntryComment")
+			if entryComment != nil && entryComment.Value != "" {
+				Stapp.SearchMap["["+DataClass.Tag+"]"+entryComment.Value] = DataClass.Tag
+				Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToLower(entryComment.Value)] = DataClass.Tag
+				Stapp.SearchMap["["+DataClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = DataClass.Tag
+				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
+			}
+			// 记录依赖
+			entryType := PtcClassConent.SelectAttr("EntryType")
+			if entryType != nil && entryType.Value != "" && !Stapp.CheckProtoType(entryType.Value) {
+				Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], DataClass.Tag)
+				logrus.Debug("SyncListWithETree init References. Value:", entryType.Value, ", MsgClass.Tag:", DataClass.Tag, ",--->Stapp.References:", Stapp.References)
+			}
+		}
+	}
+	Stapp.DataTableList.Set(newDataListString)
 }
 func (Stapp *CoreManager) SyncListWithETreeCatagoryProtocol() {
-	// 先查找是否有 protocol 的分类
+	// 先查找是否有 data 的分类
 	ptc_catagory := Stapp.DocEtree.FindElement("protocol")
 	if ptc_catagory == nil {
 		ptc_catagory = Stapp.DocEtree.CreateElement("protocol")
@@ -652,16 +706,28 @@ func (Stapp *CoreManager) GetAllUseableEntryType() []string {
 		result = append(result, child.Tag)
 	}
 
-	// 先查找是否有message的分类
-	msg_catagory := Stapp.DocEtree.FindElement("message")
+	// 先查找是否有 data 的分类
+	msg_catagory := Stapp.DocEtree.FindElement("data")
 	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("message")
+		msg_catagory = Stapp.DocEtree.CreateElement("data")
 	}
 
 	// 遍历子元素
 	for _, child := range msg_catagory.ChildElements() {
 		result = append(result, child.Tag)
 	}
+
+	// 先查找是否有 data 的分类
+	ptc_catagory := Stapp.DocEtree.FindElement("protocol")
+	if ptc_catagory == nil {
+		ptc_catagory = Stapp.DocEtree.CreateElement("protocol")
+	}
+
+	// 遍历子元素
+	for _, child := range ptc_catagory.ChildElements() {
+		result = append(result, child.Tag)
+	}
+
 	return result
 }
 
