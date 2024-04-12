@@ -16,6 +16,7 @@ type ETableType int
 
 const (
 	TableType_None ETableType = iota + 1
+	TableType_Main
 	TableType_Enum
 	TableType_Message
 	TableType_Data
@@ -438,19 +439,25 @@ func (Stapp *CoreManager) GetTableListByType(tabletype ETableType) *binding.Stri
 }
 
 func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
-	if tabletype == TableType_Enum {
+	if tabletype == TableType_Main {
+		return "changed list:"
+	} else if tabletype == TableType_Enum {
 		return "enum list:"
 	} else if tabletype == TableType_Data {
 		return "data list:"
 	} else if tabletype == TableType_Protocol {
 		return "protocol list:"
-	} else {
+	} else if tabletype == TableType_RPC {
 		return "rpc list:"
+	} else {
+		return "changed list:"
 	}
 }
 
 func (Stapp *CoreManager) GetEditTableTitle(tabletype ETableType, name string) string {
-	if tabletype == TableType_Enum {
+	if tabletype == TableType_Main {
+		return "Edit Changed:" + name
+	} else if tabletype == TableType_Enum {
 		return "Edit Enum:" + name
 	} else if tabletype == TableType_Data {
 		return "Edit Data:" + name

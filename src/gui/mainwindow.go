@@ -206,6 +206,7 @@ func (stapp *StApp) CreateMainContainer() {
 
 	// 创建下部的标签页容器
 	stapp.tables = container.NewAppTabs(
+		container.NewTabItem("Main", stapp.CreateTab(logic.TableType_Main)),
 		container.NewTabItem("Enum", stapp.CreateTab(logic.TableType_Enum)),
 		container.NewTabItem("Data", stapp.CreateTab(logic.TableType_Data)),
 		container.NewTabItem("Ptc", stapp.CreateTab(logic.TableType_Protocol)),
