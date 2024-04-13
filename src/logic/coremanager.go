@@ -399,7 +399,7 @@ func (Stapp *CoreManager) AddUpdateUnit(stUnit StUnit) bool {
 	return true
 }
 
-// Add/Update StUnit
+// Revert StUnit
 func (Stapp *CoreManager) RevertUnitFromChanged(eTableType ETableType, strUnitName string) bool {
 	if nil == Stapp.ChangedShowEtree || nil == Stapp.ChangedEtree {
 		logrus.Error("RevertUnitFromChanged failed. Stapp.ChangedShowEtree is nil, open the xml")
@@ -408,12 +408,12 @@ func (Stapp *CoreManager) RevertUnitFromChanged(eTableType ETableType, strUnitNa
 
 	strRoot := Stapp.GetEtreeRootName(eTableType)
 
-	// 先查找是否有枚举的分类
+	// 先在 ChangedShow 中找是否有对应的分类
 	show_catagory := Stapp.ChangedShowEtree.FindElement(strRoot)
 	if show_catagory == nil {
 		show_catagory = Stapp.ChangedShowEtree.CreateElement(strRoot)
 	}
-	// 在查找枚举中是否有对应的key
+	// 在 ChangedShow 查找是否有对应的key
 	show_unit := show_catagory.FindElement(strUnitName)
 	if show_unit != nil {
 		show_catagory.RemoveChild(show_catagory.SelectElement(strUnitName))
@@ -433,7 +433,21 @@ func (Stapp *CoreManager) RevertUnitFromChanged(eTableType ETableType, strUnitNa
 		return false
 	}
 
-	show_catagory.AddChild(changed_unit)
+	operationAttr := changed_unit.SelectAttr("opertype")
+	if operationAttr == nil {
+		logrus.Error("RevertUnitFromChanged failed. opertype is not exist. eTableType:", eTableType, ",strUnitName:", strUnitName)
+		return false
+	}
+	strOperType := operationAttr.Value
+
+	if strOperType == "delete" || strOperType == "update" {
+		show_catagory.AddChild(changed_unit)
+	} else if strOperType == "add" {
+
+	} else {
+		logrus.Error("RevertUnitFromChanged failed. opertype is invalid. eTableType:", eTableType, ",strUnitName:", strUnitName, ",strOperType:", strOperType)
+		return false
+	}
 
 	Stapp.SyncListWithETree()
 
@@ -974,8 +988,8 @@ func (coremgr *CoreManager) GetChangedEtree() {
 }
 
 // 寻找两个 etree 之间的 差集 eTreeA - eTreeB
-func (coremgr *CoreManager) GetEtreeDiff(strTagName string, strOperType string, eTreeA *etree.Document, eTreeB *etree.Document, etreeDiff *etree.Document) bool {
-	if eTreeA == nil || eTreeB == nil || etreeDiff == nil {
+func (coremgr *CoreManager) GetEtreeDiff(strTagName string, strOperType string, eTreeA *etree.Document, eTreeB *etree.Document, eTreeDiff *etree.Document) bool {
+	if eTreeA == nil || eTreeB == nil || eTreeDiff == nil {
 		logrus.Error("[CoreManager] GetEtreeDiff failed. invalid etree.")
 		return false
 	}
@@ -989,15 +1003,95 @@ func (coremgr *CoreManager) GetEtreeDiff(strTagName string, strOperType string, 
 	if cataB == nil {
 		cataB = eTreeA.CreateElement(strTagName)
 	}
-	for _, enumElemA := range cataA.ChildElements() {
-		enumElemB := cataB.FindElement(enumElemA.Tag)
-		if enumElemB == nil {
-			cataDiff := etreeDiff.CreateElement(strTagName)
-			diffElem := enumElemA.Copy()
+	cataDiff := eTreeDiff.FindElement(strTagName)
+
+	for _, elemA := range cataA.ChildElements() {
+		elemB := cataB.FindElement(elemA.Tag)
+		if elemB == nil {
+			if cataDiff == nil {
+				cataDiff = eTreeDiff.CreateElement(strTagName)
+			}
+			diffElem := elemA.Copy()
 			diffElem.CreateAttr("opertype", strOperType)
 			cataDiff.AddChild(diffElem)
 			logrus.Debug("[CoreManager] GetEtreeDiff found. strTagName:", strTagName, ",strOperType:", strOperType)
+		} else {
+			// 双方都存在,那就检查双方是否一致.
+			// 先检查是否已经在diff中.
+			if cataDiff != nil {
+				enumElemDiff := cataDiff.FindElement(elemA.Tag)
+				if enumElemDiff != nil {
+					continue
+				}
+			}
+			if !coremgr.CheckSameUnit(elemA, elemB) {
+				if cataDiff == nil {
+					cataDiff = eTreeDiff.CreateElement(strTagName)
+				}
+				diffElem := elemA.Copy()
+				diffElem.CreateAttr("opertype", "update")
+				cataDiff.AddChild(diffElem)
+			}
+
 		}
 	}
+	return true
+}
+
+// 检查两个单元是否完全一致
+func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Element) bool {
+	if unitA == nil && unitB == nil {
+		return true
+	}
+	if unitA == nil || unitB == nil {
+		return false
+	}
+
+	// 检查名字是否相同
+	if unitA.Tag != unitB.Tag {
+		return false
+	}
+	// 检查元素的个数是否相同
+	if len(unitA.Child) != len(unitB.Child) {
+		return false
+	}
+	// 检查注释是否一致
+	unitAComment := ""
+	for _, child := range unitA.Child {
+		// 检查该子元素是否为注释
+		if comment, ok := child.(*etree.Comment); ok {
+			unitAComment = comment.Data
+			break
+		}
+	}
+	unitBComment := ""
+	for _, child := range unitB.Child {
+		// 检查该子元素是否为注释
+		if comment, ok := child.(*etree.Comment); ok {
+			unitBComment = comment.Data
+			break
+		}
+	}
+	if unitAComment != unitBComment {
+		return false
+	}
+	indexChild := 0
+	for _, childA := range unitA.ChildElements() {
+		childB := unitB.ChildElements()[indexChild]
+		indexChild = indexChild + 1
+		if len(childA.Attr) != len(childB.Attr) {
+			return false
+		}
+		indexAttr := 0
+		// 细致检查每个元素是否相同
+		for _, attrA := range childA.Attr {
+			attrB := childB.Attr[indexAttr]
+			indexAttr = indexAttr + 1
+			if attrA.Value != attrB.Value {
+				return false
+			}
+		}
+	}
+
 	return true
 }
