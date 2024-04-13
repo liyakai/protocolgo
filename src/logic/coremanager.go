@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"bytes"
 	"io"
 	"strings"
 
@@ -18,27 +19,30 @@ const (
 	TableType_None ETableType = iota + 1
 	TableType_Main
 	TableType_Enum
-	TableType_Message
 	TableType_Data
 	TableType_Protocol
 	TableType_RPC
 )
 
 type CoreManager struct {
-	DocEtree      *etree.Document     // protocol 数据
-	XmlFilePath   string              // 打开的Xml文件路径
-	Config        *etree.Document     // 配置数据
-	EnumTableList binding.StringList  // enum 数据源
-	DataTableList binding.StringList  // data 数据源
-	PtcTableList  binding.StringList  // ptc 数据源
-	RpcTableList  binding.StringList  // rpc 数据源
-	SearchMap     map[string]string   // 所有可搜索元素到列表名字的映射
-	SearchBuffer  []string            // 所有可所有元素列表
-	References    map[string][]string // 字段的依赖列表
+	FileEtree        *etree.Document     // 保存到文件的 etree
+	ChangedEtree     *etree.Document     // 变化的 etree
+	ChangedShowEtree *etree.Document     // 包含源数据和变化数据,用于展示的 etree
+	XmlFilePath      string              // 打开的Xml文件路径
+	Config           *etree.Document     // 配置数据
+	MainTableList    binding.StringList  // Main 数据源
+	EnumTableList    binding.StringList  // enum 数据源
+	DataTableList    binding.StringList  // data 数据源
+	PtcTableList     binding.StringList  // ptc 数据源
+	RpcTableList     binding.StringList  // rpc 数据源
+	SearchMap        map[string]string   // 所有可搜索元素到列表名字的映射
+	SearchBuffer     []string            // 所有可所有元素列表
+	References       map[string][]string // 字段的依赖列表
 }
 
 func (Stapp *CoreManager) Init() {
 	// 创建一个列表的数据源
+	Stapp.MainTableList = binding.NewStringList()
 	Stapp.EnumTableList = binding.NewStringList()
 	Stapp.DataTableList = binding.NewStringList()
 	Stapp.PtcTableList = binding.NewStringList()
@@ -56,59 +60,72 @@ func (Stapp *CoreManager) Init() {
 
 func (Stapp *CoreManager) CreateNewXml() {
 	// 如果现在打开的xml不为空,则先保存现在打开的xml
-	if nil != Stapp.DocEtree {
+	if nil != Stapp.FileEtree {
 		Stapp.SaveToXmlFile()
 	}
 	// 创建新的xml
-	Stapp.DocEtree = etree.NewDocument()
-	Stapp.DocEtree.CreateProcInst("xml", `version="1.0" encoding="UTF-8"`)
-	Stapp.DocEtree.CreateProcInst("xml-stylesheet", `type="text/xsl" href="style.xsl"`)
+	Stapp.FileEtree = etree.NewDocument()
+	Stapp.FileEtree.CreateProcInst("xml", `version="1.0" encoding="UTF-8"`)
+	Stapp.FileEtree.CreateProcInst("xml-stylesheet", `type="text/xsl" href="style.xsl"`)
 	Stapp.SaveToXmlFile()
+
+	// 同时创建修改的 etree
+	Stapp.ChangedEtree = etree.NewDocument()
+	Stapp.ChangedShowEtree = Stapp.FileEtree.Copy()
 	logrus.Info("CreateNewXml done.")
 }
 
 func (Stapp *CoreManager) ReadXmlFromReader(reader io.Reader) {
 	// 如果现在打开的xml不为空,则先保存现在打开的xml
-	if nil != Stapp.DocEtree {
+	if nil != Stapp.FileEtree {
 		Stapp.CloseCurrXmlFile()
 	}
-	Stapp.DocEtree = etree.NewDocument()
-	if _, err := Stapp.DocEtree.ReadFrom(reader); err != nil {
+	Stapp.FileEtree = etree.NewDocument()
+	if _, err := Stapp.FileEtree.ReadFrom(reader); err != nil {
 		logrus.Error("ReadXmlFromReader failed. err:", err)
 		panic(err)
 	}
+	// 同时创建修改的 etree
+	Stapp.ChangedEtree = etree.NewDocument()
+	Stapp.ChangedShowEtree = Stapp.FileEtree.Copy()
+
 	Stapp.SyncListWithETree()
 	logrus.Info("ReadXmlFromReader done.")
 }
 
 func (Stapp *CoreManager) ReadXmlFromFile(filename string) {
 	// 如果现在打开的xml不为空,则先保存现在打开的xml
-	if nil != Stapp.DocEtree {
+	if nil != Stapp.FileEtree {
 		Stapp.CloseCurrXmlFile()
 	}
-	Stapp.DocEtree = etree.NewDocument()
-	if err := Stapp.DocEtree.ReadFromFile(filename); err != nil {
+	Stapp.FileEtree = etree.NewDocument()
+	if err := Stapp.FileEtree.ReadFromFile(filename); err != nil {
 		logrus.Error("ReadXmlFromFile failed. err:", err)
 		panic(err)
 	}
+
+	// 同时创建修改的 etree
+	Stapp.ChangedEtree = etree.NewDocument()
+	Stapp.ChangedShowEtree = Stapp.FileEtree.Copy()
+
 	Stapp.SyncListWithETree()
 	logrus.Info("ReadXmlFromFile done.")
 }
 
 func (Stapp *CoreManager) SaveToXmlFile() bool {
-	if nil == Stapp.DocEtree || Stapp.XmlFilePath == "" {
+	if nil == Stapp.FileEtree || Stapp.XmlFilePath == "" {
 		logrus.Warn("SaveToXmlFile failed. invalid param. Stapp.XmlFilePath:", Stapp.XmlFilePath)
 		return false
 	}
-	Stapp.DocEtree.Indent(4)
-	Stapp.DocEtree.WriteToFile(Stapp.XmlFilePath)
+	Stapp.FileEtree.Indent(4)
+	Stapp.FileEtree.WriteToFile(Stapp.XmlFilePath)
 	logrus.Info("SaveToXmlFile done. XmlFilePath:", Stapp.XmlFilePath)
 	return true
 }
 
 func (Stapp *CoreManager) CloseCurrXmlFile() {
-	if nil == Stapp.DocEtree {
-		logrus.Info("Need not close the xml. Stapp.DocEtree is nil.")
+	if nil == Stapp.FileEtree {
+		logrus.Info("Need not close the xml. Stapp.FileEtree is nil.")
 		return
 	}
 	Stapp.SaveToXmlFile()
@@ -325,31 +342,32 @@ func (Stapp *CoreManager) GetProtoNameFromSourceTargetServer(strSourceFullName s
 
 }
 
-func (Stapp *CoreManager) SaveConfigToFile() bool {
-	if nil == Stapp.Config {
-		logrus.Warn("SaveConfigToFile failed. invalid param.")
+func (Stapp *CoreManager) SaveProtoXmlToFile() bool {
+	if nil == Stapp.FileEtree {
+		logrus.Warn("SaveProtoXmlToFile failed. invalid param.")
 		return false
 	}
-	Stapp.DocEtree.Indent(4)
-	Stapp.DocEtree.WriteToFile(Stapp.XmlFilePath)
-	logrus.Info("SaveToXmlFile done. XmlFilePath:", Stapp.XmlFilePath)
+	Stapp.FileEtree.Indent(4)
+	Stapp.FileEtree.WriteToFile(Stapp.XmlFilePath)
+	logrus.Info("SaveProtoXmlToFile done. XmlFilePath:", Stapp.XmlFilePath)
 	return true
 }
 
-// 处理 StUnit
-func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
-	if nil == Stapp.DocEtree {
-		logrus.Error("EditUnit failed. Stapp.DocEtree is nil, open the xml")
+// Add/Update StUnit
+func (Stapp *CoreManager) AddUpdateUnit(stUnit StUnit) bool {
+	if nil == Stapp.ChangedShowEtree {
+		logrus.Error("AddUpdateUnit failed. Stapp.ChangedShowEtree is nil, open the xml")
 		return false
 	}
 
 	strRoot := Stapp.GetEtreeRootName(stUnit.TableType)
 
 	// 先查找是否有枚举的分类
-	msg_catagory := Stapp.DocEtree.FindElement(strRoot)
+	msg_catagory := Stapp.ChangedShowEtree.FindElement(strRoot)
 	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement(strRoot)
+		msg_catagory = Stapp.ChangedShowEtree.CreateElement(strRoot)
 	}
+
 	// 在查找枚举中是否有对应的key
 	unit := msg_catagory.FindElement(stUnit.UnitName)
 	if unit != nil {
@@ -377,7 +395,49 @@ func (Stapp *CoreManager) EditUnit(stUnit StUnit) bool {
 	Stapp.SyncListWithETree()
 
 	Stapp.SaveToXmlFile()
-	logrus.Info("EditUnit done. enumName:", stUnit.UnitName)
+	logrus.Info("AddUpdateUnit from stUnit done. enumName:", stUnit.UnitName)
+	return true
+}
+
+// Add/Update StUnit
+func (Stapp *CoreManager) RevertUnitFromChanged(eTableType ETableType, strUnitName string) bool {
+	if nil == Stapp.ChangedShowEtree || nil == Stapp.ChangedEtree {
+		logrus.Error("RevertUnitFromChanged failed. Stapp.ChangedShowEtree is nil, open the xml")
+		return false
+	}
+
+	strRoot := Stapp.GetEtreeRootName(eTableType)
+
+	// 先查找是否有枚举的分类
+	show_catagory := Stapp.ChangedShowEtree.FindElement(strRoot)
+	if show_catagory == nil {
+		show_catagory = Stapp.ChangedShowEtree.CreateElement(strRoot)
+	}
+	// 在查找枚举中是否有对应的key
+	show_unit := show_catagory.FindElement(strUnitName)
+	if show_unit != nil {
+		show_catagory.RemoveChild(show_catagory.SelectElement(strUnitName))
+	}
+
+	// 在变化项中定位元素
+	// 先查找是否有枚举的分类
+	changed_catagory := Stapp.ChangedEtree.FindElement(strRoot)
+	if changed_catagory == nil {
+		logrus.Error("RevertUnitFromChanged failed. strRoot:", strRoot, " is not exist.eTableType:", eTableType, ",strUnitName:", strUnitName)
+		return false
+	}
+	// 在查找枚举中是否有对应的key
+	changed_unit := changed_catagory.FindElement(strUnitName)
+	if changed_unit == nil {
+		logrus.Error("RevertUnitFromChanged failed. strUnitName:", strUnitName, " is not exist. eTableType:", eTableType, ",strUnitName:", strUnitName)
+		return false
+	}
+
+	show_catagory.AddChild(changed_unit)
+
+	Stapp.SyncListWithETree()
+
+	logrus.Info("RevertUnitFromChanged done. eTableType:", eTableType, ",strUnitName:", strUnitName)
 	return true
 }
 
@@ -385,8 +445,6 @@ func (Stapp *CoreManager) GetEtreeRootName(tableType ETableType) string {
 	var strUnitType string
 	if tableType == TableType_Enum {
 		strUnitType = "enum"
-	} else if tableType == TableType_Message {
-		strUnitType = "message"
 	} else if tableType == TableType_Data {
 		strUnitType = "data"
 	} else if tableType == TableType_Protocol {
@@ -403,7 +461,7 @@ func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) b
 	strUnitName := Stapp.GetEtreeRootName(tableType)
 
 	// 先查找是否有枚举的分类
-	catagory := Stapp.DocEtree.FindElement(strUnitName)
+	catagory := Stapp.ChangedShowEtree.FindElement(strUnitName)
 	if catagory == nil {
 		logrus.Error("DeleteCurrUnit failed. TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 		return false
@@ -418,14 +476,16 @@ func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) b
 
 	Stapp.SyncListWithETree()
 
-	Stapp.SaveConfigToFile()
+	Stapp.SaveProtoXmlToFile()
 
 	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 	return false
 }
 
 func (Stapp *CoreManager) GetTableListByType(tabletype ETableType) *binding.StringList {
-	if tabletype == TableType_Enum {
+	if tabletype == TableType_Main {
+		return &Stapp.MainTableList
+	} else if tabletype == TableType_Enum {
 		return &Stapp.EnumTableList
 	} else if tabletype == TableType_Data {
 		return &Stapp.DataTableList
@@ -473,7 +533,7 @@ func (Stapp *CoreManager) GetEditTableTitle(tabletype ETableType, name string) s
 func (Stapp *CoreManager) GetEtreeElem(tabletype ETableType, rowName string) *etree.Element {
 	strUnitName := Stapp.GetEtreeRootName(tabletype)
 	// 先查找是否有枚举的分类
-	catagory := Stapp.DocEtree.FindElement(strUnitName)
+	catagory := Stapp.ChangedShowEtree.FindElement(strUnitName)
 	if catagory == nil {
 		logrus.Error("GetEtreeElem failed. tabletype:", tabletype, ", strUnitName:", strUnitName, ", rowName:", rowName)
 		return nil
@@ -488,8 +548,8 @@ func (Stapp *CoreManager) GetEtreeElem(tabletype ETableType, rowName string) *et
 }
 
 func (Stapp *CoreManager) SyncListWithETree() bool {
-	if nil == Stapp.DocEtree {
-		logrus.Error("SyncListWithETree failed. Stapp.DocEtree is nil, open the xml")
+	if nil == Stapp.ChangedShowEtree {
+		logrus.Error("SyncListWithETree failed. Stapp.ChangedShowEtree is nil, open the xml")
 		return false
 	}
 	Stapp.SearchMap = map[string]string{}
@@ -498,6 +558,10 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 	Stapp.SyncListWithETreeCatagoryData()
 	Stapp.SyncListWithETreeCatagoryProtocol()
 	Stapp.SyncListWithETreeCatagoryRpc()
+
+	Stapp.GetChangedEtree()
+	// 将变化数据同步到 main 页签
+	Stapp.SyncMainListWithChangedEtree()
 
 	Stapp.SearchBuffer = []string{}
 	for key, _ := range Stapp.SearchMap {
@@ -511,9 +575,9 @@ func (Stapp *CoreManager) SyncListWithETree() bool {
 
 func (Stapp *CoreManager) SyncListWithETreeCatagoryEnum() {
 	// 先查找是否有 enum 的分类
-	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	enum_catagory := Stapp.ChangedShowEtree.FindElement("enum")
 	if enum_catagory == nil {
-		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+		enum_catagory = Stapp.ChangedShowEtree.CreateElement("enum")
 	}
 	newEnumListString := []string{}
 
@@ -560,9 +624,9 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryEnum() {
 
 func (Stapp *CoreManager) SyncListWithETreeCatagoryData() {
 	// 先查找是否有 protocol 的分类
-	data_catagory := Stapp.DocEtree.FindElement("data")
+	data_catagory := Stapp.ChangedShowEtree.FindElement("data")
 	if data_catagory == nil {
-		data_catagory = Stapp.DocEtree.CreateElement("data")
+		data_catagory = Stapp.ChangedShowEtree.CreateElement("data")
 	}
 	newDataListString := []string{}
 
@@ -612,9 +676,9 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryData() {
 }
 func (Stapp *CoreManager) SyncListWithETreeCatagoryProtocol() {
 	// 先查找是否有 data 的分类
-	ptc_catagory := Stapp.DocEtree.FindElement("protocol")
+	ptc_catagory := Stapp.ChangedShowEtree.FindElement("protocol")
 	if ptc_catagory == nil {
-		ptc_catagory = Stapp.DocEtree.CreateElement("protocol")
+		ptc_catagory = Stapp.ChangedShowEtree.CreateElement("protocol")
 	}
 	newPtcListString := []string{}
 
@@ -664,13 +728,32 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryProtocol() {
 }
 func (Stapp *CoreManager) SyncListWithETreeCatagoryRpc() {
 }
+func (Stapp *CoreManager) SyncMainListWithChangedEtree() {
+
+	if Stapp.ChangedEtree == nil {
+		logrus.Error("SyncMainListWithChangedEtree failed. ChangedEtree is nil.")
+		return
+	}
+
+	newChangedListString := []string{}
+
+	// 遍历子元素
+	for _, cataClass := range Stapp.ChangedEtree.ChildElements() {
+		for _, diffClass := range cataClass.ChildElements() {
+			newChangedListString = append(newChangedListString, "["+diffClass.SelectAttr("opertype").Value+"]"+diffClass.Tag)
+			logrus.Debug("SyncMainListWithChangedEtree. newChangedListString:", newChangedListString)
+		}
+	}
+	logrus.Debug("SyncMainListWithChangedEtree done. newChangedListString:", newChangedListString)
+	Stapp.MainTableList.Set(newChangedListString)
+}
 
 // 检查name 是否重复
 func (Stapp *CoreManager) CheckExistSameName(name string) bool {
 	// 先查找是否有 enum 的分类
-	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	enum_catagory := Stapp.ChangedShowEtree.FindElement("enum")
 	if enum_catagory == nil {
-		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+		enum_catagory = Stapp.ChangedShowEtree.CreateElement("enum")
 	}
 
 	// 查找 enum 名字
@@ -680,9 +763,9 @@ func (Stapp *CoreManager) CheckExistSameName(name string) bool {
 	}
 
 	// 先查找是否有message的分类
-	msg_catagory := Stapp.DocEtree.FindElement("message")
+	msg_catagory := Stapp.ChangedShowEtree.FindElement("message")
 	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("message")
+		msg_catagory = Stapp.ChangedShowEtree.CreateElement("message")
 	}
 	// 查找 message 名字
 	msg_uint := msg_catagory.FindElement(name)
@@ -703,9 +786,9 @@ func (Stapp *CoreManager) GetListNameBySearchName(searchname string) string {
 func (Stapp *CoreManager) GetAllUseableEntryType() []string {
 	result := []string{}
 	// 先查找是否有 enum 的分类
-	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	enum_catagory := Stapp.ChangedShowEtree.FindElement("enum")
 	if enum_catagory == nil {
-		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+		enum_catagory = Stapp.ChangedShowEtree.CreateElement("enum")
 	}
 
 	// 遍历子元素
@@ -714,9 +797,9 @@ func (Stapp *CoreManager) GetAllUseableEntryType() []string {
 	}
 
 	// 先查找是否有 data 的分类
-	msg_catagory := Stapp.DocEtree.FindElement("data")
+	msg_catagory := Stapp.ChangedShowEtree.FindElement("data")
 	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("data")
+		msg_catagory = Stapp.ChangedShowEtree.CreateElement("data")
 	}
 
 	// 遍历子元素
@@ -725,9 +808,9 @@ func (Stapp *CoreManager) GetAllUseableEntryType() []string {
 	}
 
 	// 先查找是否有 data 的分类
-	ptc_catagory := Stapp.DocEtree.FindElement("protocol")
+	ptc_catagory := Stapp.ChangedShowEtree.FindElement("protocol")
 	if ptc_catagory == nil {
-		ptc_catagory = Stapp.DocEtree.CreateElement("protocol")
+		ptc_catagory = Stapp.ChangedShowEtree.CreateElement("protocol")
 	}
 
 	// 遍历子元素
@@ -763,7 +846,7 @@ func (coremgr *CoreManager) GetReferences(str string) []string {
 }
 
 func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
-	if Stapp.DocEtree == nil {
+	if Stapp.ChangedShowEtree == nil {
 		return TableType_None
 	}
 	if name == "" {
@@ -771,9 +854,9 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 	}
 	// Stapp.SyncListWithETree()
 
-	enum_catagory := Stapp.DocEtree.FindElement("enum")
+	enum_catagory := Stapp.ChangedShowEtree.FindElement("enum")
 	if enum_catagory == nil {
-		enum_catagory = Stapp.DocEtree.CreateElement("enum")
+		enum_catagory = Stapp.ChangedShowEtree.CreateElement("enum")
 	}
 	// 查找 enum 名字
 	enum_uint := enum_catagory.FindElement(name)
@@ -781,35 +864,72 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 		return TableType_Enum
 	}
 
-	data_catagory := Stapp.DocEtree.FindElement("data")
+	changed_enum_catagory := Stapp.ChangedEtree.FindElement("enum")
+	if changed_enum_catagory != nil {
+		// 查找 enum 名字
+		changed_enum_uint := changed_enum_catagory.FindElement(name)
+		if changed_enum_uint != nil {
+			return TableType_Enum
+		}
+	}
+
+	data_catagory := Stapp.ChangedShowEtree.FindElement("data")
 	if data_catagory == nil {
-		data_catagory = Stapp.DocEtree.CreateElement("data")
+		data_catagory = Stapp.ChangedShowEtree.CreateElement("data")
 	}
 	// 查找 data 名字
 	data_uint := data_catagory.FindElement(name)
 	if data_uint != nil {
 		return TableType_Data
 	}
-
-	msg_catagory := Stapp.DocEtree.FindElement("protocol")
-	if msg_catagory == nil {
-		msg_catagory = Stapp.DocEtree.CreateElement("protocol")
+	changed_data_catagory := Stapp.ChangedEtree.FindElement("data")
+	if changed_data_catagory != nil {
+		// 查找 enum 名字
+		changed_data_uint := changed_data_catagory.FindElement(name)
+		if changed_data_uint != nil {
+			return TableType_Data
+		}
 	}
+
+	msg_catagory := Stapp.ChangedShowEtree.FindElement("protocol")
+	if msg_catagory == nil {
+		msg_catagory = Stapp.ChangedShowEtree.CreateElement("protocol")
+	}
+
 	// 查找 message 名字
 	msg_uint := msg_catagory.FindElement(name)
 	if msg_uint != nil {
-		return TableType_Message
+		return TableType_Protocol
 	}
 
-	rpc_catagory := Stapp.DocEtree.FindElement("rpc")
+	changed_msg_catagory := Stapp.ChangedEtree.FindElement("protocol")
+	if changed_msg_catagory != nil {
+		// 查找 enum 名字
+		changed_enum_uint := changed_msg_catagory.FindElement(name)
+		if changed_enum_uint != nil {
+			return TableType_Protocol
+		}
+	}
+
+	rpc_catagory := Stapp.ChangedShowEtree.FindElement("rpc")
 	if rpc_catagory == nil {
-		rpc_catagory = Stapp.DocEtree.CreateElement("rpc")
+		rpc_catagory = Stapp.ChangedShowEtree.CreateElement("rpc")
 	}
 	// 查找 message 名字
 	rpc_uint := rpc_catagory.FindElement(name)
 	if rpc_uint != nil {
 		return TableType_RPC
 	}
+
+	changed_rpc_catagory := Stapp.ChangedEtree.FindElement("rpc")
+	if changed_rpc_catagory != nil {
+		// 查找 enum 名字
+		changed_rpc_uint := changed_rpc_catagory.FindElement(name)
+		if changed_rpc_uint != nil {
+			return TableType_RPC
+		}
+	}
+
 	return TableType_None
 }
 
@@ -817,7 +937,7 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 func (coremgr *CoreManager) GetVarListOfEnum(strEnumName string) []string {
 	enumElement := coremgr.GetEtreeElem(TableType_Enum, strEnumName)
 	if enumElement == nil {
-		logrus.Error("[GetEnumVar] failed for GetEtreeElem, strEnumName:", strEnumName)
+		logrus.Error("[CoreManager] failed for GetEtreeElem, strEnumName:", strEnumName)
 		return []string{}
 	}
 	result := []string{}
@@ -828,4 +948,56 @@ func (coremgr *CoreManager) GetVarListOfEnum(strEnumName string) []string {
 		}
 	}
 	return result
+}
+
+// 根据 FileEtree 和 ChangedShowEtree 算出差异和差异类型
+func (coremgr *CoreManager) GetChangedEtree() {
+	if coremgr.FileEtree == nil || coremgr.ChangedEtree == nil || coremgr.ChangedShowEtree == nil {
+		logrus.Error("[CoreManager] GetChangedEtree failed. invalid etree.")
+	}
+	coremgr.ChangedEtree = etree.NewDocument()
+	coremgr.GetEtreeDiff("enum", "delete", coremgr.FileEtree, coremgr.ChangedShowEtree, coremgr.ChangedEtree)
+	coremgr.GetEtreeDiff("enum", "add", coremgr.ChangedShowEtree, coremgr.FileEtree, coremgr.ChangedEtree)
+
+	coremgr.GetEtreeDiff("data", "delete", coremgr.FileEtree, coremgr.ChangedShowEtree, coremgr.ChangedEtree)
+	coremgr.GetEtreeDiff("data", "add", coremgr.ChangedShowEtree, coremgr.FileEtree, coremgr.ChangedEtree)
+
+	coremgr.GetEtreeDiff("protocol", "delete", coremgr.FileEtree, coremgr.ChangedShowEtree, coremgr.ChangedEtree)
+	coremgr.GetEtreeDiff("protocol", "add", coremgr.ChangedShowEtree, coremgr.FileEtree, coremgr.ChangedEtree)
+
+	coremgr.GetEtreeDiff("rpc", "delete", coremgr.FileEtree, coremgr.ChangedShowEtree, coremgr.ChangedEtree)
+	coremgr.GetEtreeDiff("rpc", "add", coremgr.ChangedShowEtree, coremgr.FileEtree, coremgr.ChangedEtree)
+
+	changedBuffer := new(bytes.Buffer)
+	coremgr.ChangedEtree.WriteTo(changedBuffer)
+	logrus.Info("[CoreManager] GetChangedEtree done. coremgr.ChangedEtree:", changedBuffer.String())
+}
+
+// 寻找两个 etree 之间的 差集 eTreeA - eTreeB
+func (coremgr *CoreManager) GetEtreeDiff(strTagName string, strOperType string, eTreeA *etree.Document, eTreeB *etree.Document, etreeDiff *etree.Document) bool {
+	if eTreeA == nil || eTreeB == nil || etreeDiff == nil {
+		logrus.Error("[CoreManager] GetEtreeDiff failed. invalid etree.")
+		return false
+	}
+
+	// 对比 enum
+	cataA := eTreeA.FindElement(strTagName)
+	if cataA == nil {
+		cataA = eTreeA.CreateElement(strTagName)
+	}
+	cataB := eTreeB.FindElement(strTagName)
+	if cataB == nil {
+		cataB = eTreeA.CreateElement(strTagName)
+	}
+	for _, enumElemA := range cataA.ChildElements() {
+		enumElemB := cataB.FindElement(enumElemA.Tag)
+		if enumElemB == nil {
+			cataDiff := etreeDiff.CreateElement(strTagName)
+			diffElem := enumElemA.Copy()
+			diffElem.CreateAttr("opertype", strOperType)
+			cataDiff.AddChild(diffElem)
+			logrus.Debug("[CoreManager] GetEtreeDiff found. strTagName:", strTagName, ",strOperType:", strOperType)
+		}
+	}
+	return true
 }

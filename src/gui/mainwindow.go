@@ -98,7 +98,7 @@ func (stapp *StApp) SetIcon() {
 	icon := fyne.NewStaticResource("Icon", bytes)
 	(*stapp.Window).SetIcon(icon)
 	(*stapp.App).SetIcon(icon)
-	logrus.Error("SetIcon done. iconPath:", iconPath)
+	logrus.Info("SetIcon done. iconPath:", iconPath)
 }
 
 // 自定义退出策略
@@ -346,6 +346,9 @@ func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.Ca
 	button := widget.NewButton("Add new", func() {
 		stapp.EditUnit(tabletype, "")
 	})
+	if tabletype == logic.TableType_Main {
+		return container.NewStack(label)
+	}
 	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
 	topContainer := container.NewHSplit(container.NewStack(label), button)
 	topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
@@ -399,6 +402,9 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	}
 	// 如果输入框改了,则自动修改下拉框.[互相联动]
 	inputUnitName.OnChanged = func(strProtoName string) {
+		if tabletype != logic.TableType_Protocol || tabletype != logic.TableType_RPC {
+			return
+		}
 		isSucess, firstFullName, secondFullName := stapp.CoreMgr.DetectFullNameByProtoName(strProtoName)
 		if isSucess {
 			logrus.Info("[EditUnit] inputUnitName OnChanged. strProtoName:", strProtoName, " firstFullName:", firstFullName, ",secondFullName:", secondFullName)
@@ -530,8 +536,8 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 				return
 			}
 
-			if !stapp.CoreMgr.EditUnit(stUnit) {
-				logrus.Error("[CreateNewMessage] EditUnit failed.")
+			if !stapp.CoreMgr.AddUpdateUnit(stUnit) {
+				logrus.Error("[CreateNewMessage] AddUpdateUnit failed.")
 				return
 			}
 
@@ -724,7 +730,7 @@ func (stapp *StApp) CreateEntryTypeInfo(entry *logic.CompletionEntry, pe *fyne.P
 	// pasteItem := fyne.NewMenuItem("Paste", func() {
 	// 	canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
 	// })
-	detailInfoItem := fyne.NewMenuItem("Detail", func() {
+	detailInfoItem := fyne.NewMenuItem("Edit", func() {
 		// canvas.(fyne.Shortcutable).TypedShortcut(&fyne.ShortcutPaste{Clipboard: clipboard})
 		stapp.EditUnit(stapp.CoreMgr.SearchTableListWithName(entry.Text), entry.Text)
 
