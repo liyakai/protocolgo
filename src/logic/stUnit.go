@@ -33,6 +33,7 @@ type StUnit struct {
 	UnitComment string
 	TableType   ETableType
 	RowList     []StRowUnit
+	IsCreatNew  bool
 }
 
 func (editrow *StRowUnit) RemoveElementFromSlice(s []StRowUnit, elementToBeDeleted StRowUnit) []StRowUnit {

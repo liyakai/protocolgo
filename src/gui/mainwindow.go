@@ -362,9 +362,45 @@ func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.Ca
 
 // 创建新Message的编辑页面
 func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
-	dialogContent := container.NewGridWithRows(2)
+	dialogContent := container.NewGridWithRows(4)
 	customDialog := dialog.NewCustomWithoutButtons(stapp.CoreMgr.GetEditTableTitle(tabletype, unitname), container.NewVScroll(dialogContent), *stapp.Window)
 	customDialog.Resize(fyne.NewSize(1100, 800))
+
+	inputInfoContainer, unitReq := stapp.GetUnitDetailContainer(customDialog, tabletype, unitname)
+	dialogContent.Add(inputInfoContainer)
+
+	var inputInfoContainer2 *fyne.Container
+	// var unitAck logic.StUnit
+	if tabletype == logic.TableType_RPC {
+		inputInfoContainer2, _ = stapp.GetUnitDetailContainer(customDialog, tabletype, unitname)
+	}
+
+	// 获取取消/保存按钮组,以及依赖列表
+	refCancelSaveButtons, referencesList := stapp.GetUnitDetailButtons(unitReq, customDialog)
+	// dialogContent.Add(referencesList)
+	if tabletype == logic.TableType_RPC {
+		inputInfoContainer2.Add(container.NewCenter(refCancelSaveButtons))
+		dialogContent.Add(inputInfoContainer2)
+		// dialogContent.Add(referencesList2)
+	} else {
+		inputInfoContainer.Add(container.NewCenter(refCancelSaveButtons))
+	}
+
+	dialogContent.Add(referencesList)
+
+	// 创建退出快捷键
+	(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+		// 在这里检查按下的是不是 Esc 键
+		if ke.Name == fyne.KeyEscape {
+			// 如果是 Esc 键，隐藏自定义对话框
+			customDialog.Hide()
+		}
+	})
+
+	customDialog.Show()
+}
+
+func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, tabletype logic.ETableType, unitname string) (*fyne.Container, logic.StUnit) {
 	bCreateNew := false // 是否是新的节点
 	etreeRow := stapp.CoreMgr.GetEtreeElem(tabletype, unitname)
 	if unitname == "" || etreeRow == nil {
@@ -504,7 +540,19 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	attrBoader := container.NewBorder(nil, nil, nil, addButton, attrBox)
 	inputInfoContainer.Add(attrBoader)
 
-	referencesList := stapp.CreateEntryReferenceListCanvas(unitname)
+	var stUnit logic.StUnit
+	stUnit.UnitName = inputUnitName.Text
+	stUnit.UnitComment = inputUnitComment.Text
+	stUnit.TableType = tabletype
+	stUnit.RowList = rowList
+	stUnit.IsCreatNew = bCreateNew
+
+	// inputInfoContainer.Add(container.NewCenter(buttons))
+	return inputInfoContainer, stUnit
+}
+
+func (stapp *StApp) GetUnitDetailButtons(stUnit logic.StUnit, customDialog *dialog.CustomDialog) (*fyne.Container, *fyne.Container) {
+	referencesList := stapp.CreateEntryReferenceListCanvas(stUnit.UnitName)
 	referencesList.Hide()
 	bShowReferenceList := false
 
@@ -529,14 +577,9 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 		// Save Button
 		widget.NewButton("Save", func() {
 			// Save logic goes here
-			logrus.Info("[CreateNewMessage]Save. inputUnitName: " + inputUnitName.Text)
+			logrus.Info("[CreateNewMessage]Save. UnitName: " + stUnit.UnitName)
 
-			var stUnit logic.StUnit
-			stUnit.UnitName = inputUnitName.Text
-			stUnit.UnitComment = inputUnitComment.Text
-			stUnit.TableType = tabletype
-			stUnit.RowList = rowList
-			if !stapp.CheckStUnit(stUnit, bCreateNew) {
+			if !stapp.CheckStUnit(stUnit) {
 				logrus.Error("[CreateNewMessage] CheckEditMessage failed.")
 				return
 			}
@@ -549,21 +592,7 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 			customDialog.Hide()
 		}),
 	)
-
-	inputInfoContainer.Add(container.NewCenter(buttons))
-	dialogContent.Add(inputInfoContainer)
-	dialogContent.Add(referencesList)
-
-	// 创建退出快捷键
-	(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
-		// 在这里检查按下的是不是 Esc 键
-		if ke.Name == fyne.KeyEscape {
-			// 如果是 Esc 键，隐藏自定义对话框
-			customDialog.Hide()
-		}
-	})
-
-	customDialog.Show()
+	return buttons, referencesList
 }
 
 func (stapp *StApp) CreateRowForEditUnit(tabletype logic.ETableType, strRowUnit logic.StStrRowUnit, attrBox *fyne.Container, rowList *[]logic.StRowUnit) {
@@ -808,7 +837,7 @@ func (stapp *StApp) DestoryEntryTypeInfo(pPopUp **widget.PopUp) {
 }
 
 // 检查 StUnit
-func (stapp *StApp) CheckStUnit(stUnit logic.StUnit, bCreateNew bool) bool {
+func (stapp *StApp) CheckStUnit(stUnit logic.StUnit) bool {
 	// 检查 name 的合法性
 	if stUnit.UnitName == "" || strings.Contains(stUnit.UnitName, " ") || utils.CheckPositiveInteger(stUnit.UnitName) || utils.CheckStartWithNum(stUnit.UnitName) {
 		logrus.Error("CheckStUnit failed. invalid MsgName: ", stUnit.UnitName)
@@ -817,7 +846,7 @@ func (stapp *StApp) CheckStUnit(stUnit logic.StUnit, bCreateNew bool) bool {
 	}
 
 	// 检查 name 是否已经存在
-	if bCreateNew && stapp.CoreMgr.CheckExistSameName(stUnit.UnitName) {
+	if stUnit.IsCreatNew && stapp.CoreMgr.CheckExistSameName(stUnit.UnitName) {
 		logrus.Error("CheckStUnit failed. Repeated MsgName: ", stUnit.UnitName)
 		dialog.ShowInformation("Error!", "The name["+stUnit.UnitName+"] is already exist.", *stapp.Window)
 		return false

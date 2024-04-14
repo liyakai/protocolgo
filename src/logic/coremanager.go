@@ -745,6 +745,56 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryProtocol() {
 	Stapp.PtcTableList.Set(newPtcListString)
 }
 func (Stapp *CoreManager) SyncListWithETreeCatagoryRpc() {
+	// 先查找是否有 data 的分类
+	ptc_catagory := Stapp.ChangedShowEtree.FindElement("rpc")
+	if ptc_catagory == nil {
+		ptc_catagory = Stapp.ChangedShowEtree.CreateElement("rpc")
+	}
+	newRpcListString := []string{}
+
+	// 遍历子元素
+	for _, PtcClass := range ptc_catagory.ChildElements() {
+		newRpcListString = append(newRpcListString, PtcClass.Tag)
+		// 枚举类名字映射
+		Stapp.SearchMap[PtcClass.Tag] = PtcClass.Tag
+		Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(PtcClass.Tag)] = PtcClass.Tag
+		Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(PtcClass.Tag)] = PtcClass.Tag
+		// 将注释映射
+		for _, child := range PtcClass.Child {
+			// 检查该子元素是否为注释
+			if comment, ok := child.(*etree.Comment); ok {
+				if comment.Data != "" {
+					Stapp.SearchMap["["+PtcClass.Tag+"]"+comment.Data] = PtcClass.Tag
+					Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(comment.Data)] = PtcClass.Tag
+					Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(comment.Data)] = PtcClass.Tag
+				}
+				break
+			}
+		}
+		for _, PtcClassConent := range PtcClass.ChildElements() {
+			entryName := PtcClassConent.SelectAttr("EntryName")
+			if entryName != nil && entryName.Value != "" {
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+entryName.Value] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(entryName.Value)] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(entryName.Value)] = PtcClass.Tag
+				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
+			}
+			entryComment := PtcClassConent.SelectAttr("EntryComment")
+			if entryComment != nil && entryComment.Value != "" {
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+entryComment.Value] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(entryComment.Value)] = PtcClass.Tag
+				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = PtcClass.Tag
+				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
+			}
+			// 记录依赖
+			entryType := PtcClassConent.SelectAttr("EntryType")
+			if entryType != nil && entryType.Value != "" && !Stapp.CheckProtoType(entryType.Value) {
+				Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], PtcClass.Tag)
+				// logrus.Debug("SyncListWithETree init References. Value:", entryType.Value, ", MsgClass.Tag:", MsgClass.Tag, ",--->Stapp.References:", Stapp.References)
+			}
+		}
+	}
+	Stapp.RpcTableList.Set(newRpcListString)
 }
 func (Stapp *CoreManager) SyncMainListWithChangedEtree() {
 
