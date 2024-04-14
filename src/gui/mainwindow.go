@@ -257,13 +257,13 @@ func (stapp *StApp) CreateTopSearchContainer() fyne.CanvasObject {
 			if strEntryName != "" {
 				eTableType := stapp.CoreMgr.SearchTableListWithName(strEntryName)
 				if eTableType == logic.TableType_Enum {
-					stapp.tables.SelectIndex(0)
-				} else if eTableType == logic.TableType_Data {
 					stapp.tables.SelectIndex(1)
-				} else if eTableType == logic.TableType_Protocol {
+				} else if eTableType == logic.TableType_Data {
 					stapp.tables.SelectIndex(2)
-				} else if eTableType == logic.TableType_RPC {
+				} else if eTableType == logic.TableType_Protocol {
 					stapp.tables.SelectIndex(3)
+				} else if eTableType == logic.TableType_RPC {
+					stapp.tables.SelectIndex(4)
 				}
 			}
 			searchEntry.ShowCompletion()
