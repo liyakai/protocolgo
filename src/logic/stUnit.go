@@ -36,6 +36,15 @@ type StUnit struct {
 	IsCreatNew  bool
 }
 
+// Unit container
+type StUnitContainer struct {
+	UnitNameEntry    *widget.Entry
+	UnitCommentEntry *widget.Entry
+	TableType        ETableType
+	RowList          *[]StRowUnit
+	IsCreatNew       bool
+}
+
 func (editrow *StRowUnit) RemoveElementFromSlice(s []StRowUnit, elementToBeDeleted StRowUnit) []StRowUnit {
 	for i, element := range s {
 		// 使用适当的比较来确定哪一个元素应被删除
@@ -90,4 +99,14 @@ func CheckFieldIndexList(rowList []StRowUnit) bool {
 	}
 
 	return true
+}
+
+func (stUnitContainer *StUnitContainer) GetStUnit() StUnit {
+	var stUnit StUnit
+	stUnit.UnitName = stUnitContainer.UnitNameEntry.Text
+	stUnit.UnitComment = stUnitContainer.UnitCommentEntry.Text
+	stUnit.TableType = stUnitContainer.TableType
+	stUnit.RowList = *stUnitContainer.RowList
+	stUnit.IsCreatNew = stUnitContainer.IsCreatNew
+	return stUnit
 }

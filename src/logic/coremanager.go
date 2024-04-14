@@ -234,7 +234,7 @@ func (Stapp *CoreManager) GetClientShortName() (bool, string) {
 func (Stapp *CoreManager) DetectFullNameByProtoName(protoName string) (result bool, firstName string, secondName string) {
 	parts := strings.Split(protoName, "_")
 	if len(parts) < 2 {
-		logrus.Error("[DetectFullNameByProtoName] Failed for invalid protoName:", protoName)
+		logrus.Info("[DetectFullNameByProtoName] Failed for invalid protoName:", protoName)
 		return false, "", ""
 	}
 	strNamePre := parts[0]
@@ -400,7 +400,6 @@ func (Stapp *CoreManager) AddUpdateUnit(stUnit StUnit) bool {
 	// Stapp.EnumTableList.Append(editMsg.MsgName)
 	Stapp.SyncListWithETree()
 
-	Stapp.SaveToXmlFile()
 	logrus.Info("AddUpdateUnit from stUnit done. enumName:", stUnit.UnitName)
 	return true
 }
@@ -1152,4 +1151,36 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 	}
 
 	return true
+}
+
+// 根据枚举类型获取枚举名字
+func (coremgr *CoreManager) GetRpcAckName(strRpcReqName string) (bool, string) {
+	// 特殊的正常情况.新rpc协议,传入空,返回空.
+	if strRpcReqName == "" {
+		return true, ""
+	}
+	// 检查参数
+	if coremgr.ChangedShowEtree == nil {
+		logrus.Error("[CoreManager] GetRpcAckName failed for coremgr.ChangedShowEtree. strRpcReqName:", strRpcReqName)
+		return false, ""
+	}
+	cata_rpc := coremgr.ChangedShowEtree.FindElement("rpc")
+	if cata_rpc == nil {
+		coremgr.ChangedShowEtree.CreateElement("rpc")
+		return true, ""
+	}
+	unit_rpc := cata_rpc.FindElement(strRpcReqName)
+	if unit_rpc == nil {
+		logrus.Error("[CoreManager] GetRpcAckName failed for finding unit_rpc. strRpcReqName:", strRpcReqName)
+		return false, ""
+	}
+	for _, protocolUnit := range unit_rpc.ChildElements() {
+		if protocolUnit.Tag == strRpcReqName {
+			continue
+		} else {
+			return true, protocolUnit.Tag
+		}
+	}
+	logrus.Error("[CoreManager] GetRpcAckName failed for finding nothing. strRpcReqName:", strRpcReqName)
+	return false, ""
 }

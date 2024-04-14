@@ -370,13 +370,18 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	dialogContent.Add(inputInfoContainer)
 
 	var inputInfoContainer2 *fyne.Container
-	// var unitAck logic.StUnit
+	var unitAck *logic.StUnitContainer
 	if tabletype == logic.TableType_RPC {
-		inputInfoContainer2, _ = stapp.GetUnitDetailContainer(customDialog, tabletype, unitname)
+		isSuccess, rpcAckName := stapp.CoreMgr.GetRpcAckName(unitname)
+		if !isSuccess {
+			logrus.Error("[EditUnit] Failed for GetRpcAckName. tabletype:", tabletype, ",unitname:", unitname, ",rpcAckName:", rpcAckName)
+			return
+		}
+		inputInfoContainer2, unitAck = stapp.GetUnitDetailContainer(customDialog, tabletype, rpcAckName)
 	}
 
 	// 获取取消/保存按钮组,以及依赖列表
-	refCancelSaveButtons, referencesList := stapp.GetUnitDetailButtons(unitReq, customDialog)
+	refCancelSaveButtons, referencesList := stapp.GetUnitDetailButtons(unitReq, unitAck, customDialog)
 	// dialogContent.Add(referencesList)
 	if tabletype == logic.TableType_RPC {
 		inputInfoContainer2.Add(container.NewCenter(refCancelSaveButtons))
@@ -400,7 +405,7 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	customDialog.Show()
 }
 
-func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, tabletype logic.ETableType, unitname string) (*fyne.Container, logic.StUnit) {
+func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, tabletype logic.ETableType, unitname string) (*fyne.Container, *logic.StUnitContainer) {
 	bCreateNew := false // 是否是新的节点
 	etreeRow := stapp.CoreMgr.GetEtreeElem(tabletype, unitname)
 	if unitname == "" || etreeRow == nil {
@@ -485,7 +490,8 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 
 	nEntryIndex := 0
 	// 在外部定义一个列表来保存每一行的组件
-	var rowList []logic.StRowUnit
+	var rowList *[]logic.StRowUnit
+	rowList = new([]logic.StRowUnit)
 
 	// 创建一个"Add" 按钮，点击后在VBox中添加新的Entry
 	attrBox := container.NewVBox()
@@ -524,7 +530,7 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 				}
 			}
 			logrus.Info("[EditUnit] Add old row info to list. tabletype:", tabletype, ",rowUnit:", rowUnit)
-			stapp.CreateRowForEditUnit(tabletype, rowUnit, attrBox, &rowList)
+			stapp.CreateRowForEditUnit(tabletype, rowUnit, attrBox, rowList)
 		}
 	}
 
@@ -533,32 +539,35 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 		nEntryIndex = nEntryIndex + 1
 		stapp.CreateRowForEditUnit(tabletype, logic.StStrRowUnit{
 			EntryIndex: strconv.Itoa(nEntryIndex),
-		}, attrBox, &rowList)
+		}, attrBox, rowList)
 	})
 
 	// 创建可以新增列的container
 	attrBoader := container.NewBorder(nil, nil, nil, addButton, attrBox)
 	inputInfoContainer.Add(attrBoader)
 
-	var stUnit logic.StUnit
-	stUnit.UnitName = inputUnitName.Text
-	stUnit.UnitComment = inputUnitComment.Text
-	stUnit.TableType = tabletype
-	stUnit.RowList = rowList
-	stUnit.IsCreatNew = bCreateNew
+	var stUnitContainer logic.StUnitContainer
+	stUnitContainer.UnitNameEntry = inputUnitName
+	stUnitContainer.UnitCommentEntry = inputUnitComment
+	stUnitContainer.TableType = tabletype
+	stUnitContainer.RowList = rowList
+	stUnitContainer.IsCreatNew = bCreateNew
 
 	// inputInfoContainer.Add(container.NewCenter(buttons))
-	return inputInfoContainer, stUnit
+	return inputInfoContainer, &stUnitContainer
 }
 
-func (stapp *StApp) GetUnitDetailButtons(stUnit logic.StUnit, customDialog *dialog.CustomDialog) (*fyne.Container, *fyne.Container) {
-	referencesList := stapp.CreateEntryReferenceListCanvas(stUnit.UnitName)
+func (stapp *StApp) GetUnitDetailButtons(stUnitReq *logic.StUnitContainer, stUnitAck *logic.StUnitContainer, customDialog *dialog.CustomDialog) (*fyne.Container, *fyne.Container) {
+	var referencesList *fyne.Container
+	referencesList = stapp.CreateEntryReferenceListCanvas(stUnitReq.UnitNameEntry.Text)
 	referencesList.Hide()
 	bShowReferenceList := false
 
 	// 增加关闭,保存按钮
 	buttons := container.NewHBox(
 		widget.NewButton("References", func() {
+			referencesList = stapp.CreateEntryReferenceListCanvas(stUnitReq.UnitNameEntry.Text)
+			referencesList.Hide()
 			// Cancel logic goes here
 			if bShowReferenceList {
 				bShowReferenceList = false
@@ -577,14 +586,22 @@ func (stapp *StApp) GetUnitDetailButtons(stUnit logic.StUnit, customDialog *dial
 		// Save Button
 		widget.NewButton("Save", func() {
 			// Save logic goes here
-			logrus.Info("[CreateNewMessage]Save. UnitName: " + stUnit.UnitName)
+			logrus.Info("[CreateNewMessage]Save. UnitName: " + stUnitReq.GetStUnit().UnitName)
 
-			if !stapp.CheckStUnit(stUnit) {
+			if !stapp.CheckStUnit(stUnitReq.GetStUnit()) {
+				logrus.Error("[CreateNewMessage] CheckEditMessage failed.")
+				return
+			}
+			if stUnitAck != nil && !stapp.CheckStUnit(stUnitAck.GetStUnit()) {
 				logrus.Error("[CreateNewMessage] CheckEditMessage failed.")
 				return
 			}
 
-			if !stapp.CoreMgr.AddUpdateUnit(stUnit) {
+			if !stapp.CoreMgr.AddUpdateUnit(stUnitReq.GetStUnit()) {
+				logrus.Error("[CreateNewMessage] AddUpdateUnit failed.")
+				return
+			}
+			if stUnitAck != nil && !stapp.CoreMgr.AddUpdateUnit(stUnitAck.GetStUnit()) {
 				logrus.Error("[CreateNewMessage] AddUpdateUnit failed.")
 				return
 			}
