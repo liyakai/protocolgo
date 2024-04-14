@@ -343,10 +343,16 @@ func (Stapp *CoreManager) GetProtoNameFromSourceTargetServer(strSourceFullName s
 }
 
 func (Stapp *CoreManager) SaveProtoXmlToFile() bool {
-	if nil == Stapp.FileEtree {
+	if nil == Stapp.FileEtree || nil == Stapp.ChangedEtree || nil == Stapp.ChangedShowEtree {
 		logrus.Warn("SaveProtoXmlToFile failed. invalid param.")
 		return false
 	}
+
+	// 将修改同步到File
+	Stapp.FileEtree = Stapp.ChangedShowEtree.Copy()
+	// 同步列表
+	Stapp.SyncListWithETree()
+
 	Stapp.FileEtree.Indent(4)
 	Stapp.FileEtree.WriteToFile(Stapp.XmlFilePath)
 	logrus.Info("SaveProtoXmlToFile done. XmlFilePath:", Stapp.XmlFilePath)
@@ -489,8 +495,6 @@ func (Stapp *CoreManager) DeleteCurrUnit(tableType ETableType, rowName string) b
 	catagory.RemoveChild(catagory.SelectElement(rowName))
 
 	Stapp.SyncListWithETree()
-
-	Stapp.SaveProtoXmlToFile()
 
 	logrus.Info("DeleteCurrUnit done. TableType:", tableType, ", strUnitName:", strUnitName, ", rowName:", rowName)
 	return false
@@ -1032,7 +1036,6 @@ func (coremgr *CoreManager) GetEtreeDiff(strTagName string, strOperType string, 
 				diffElem.CreateAttr("opertype", "update")
 				cataDiff.AddChild(diffElem)
 			}
-
 		}
 	}
 	return true
@@ -1049,10 +1052,12 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 
 	// 检查名字是否相同
 	if unitA.Tag != unitB.Tag {
+		logrus.Debug("[CoreManager] CheckSameUnit found diff tag. unitA.Tag:", unitA.Tag, ",unitB.Tag:", unitB.Tag)
 		return false
 	}
 	// 检查元素的个数是否相同
-	if len(unitA.Child) != len(unitB.Child) {
+	if len(unitA.ChildElements()) != len(unitB.ChildElements()) {
+		logrus.Debug("[CoreManager] CheckSameUnit found diff Child length. len(unitA.ChildElements()):", len(unitA.ChildElements()), ",len(unitB.ChildElements()):", len(unitB.ChildElements()), ", unitA.Tag:", unitA.Tag, ",unitB.Tag:", unitB.Tag)
 		return false
 	}
 	// 检查注释是否一致
@@ -1073,6 +1078,7 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 		}
 	}
 	if unitAComment != unitBComment {
+		logrus.Debug("[CoreManager] CheckSameUnit found diff comment. unitAComment:", unitAComment, ",unitBComment:", unitBComment)
 		return false
 	}
 	indexChild := 0
@@ -1080,6 +1086,7 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 		childB := unitB.ChildElements()[indexChild]
 		indexChild = indexChild + 1
 		if len(childA.Attr) != len(childB.Attr) {
+			logrus.Debug("[CoreManager] CheckSameUnit found diff child attr length. len(childA.Attr):", len(childA.Attr), ",len(childB.Attr):", len(childB.Attr))
 			return false
 		}
 		indexAttr := 0
@@ -1088,6 +1095,7 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 			attrB := childB.Attr[indexAttr]
 			indexAttr = indexAttr + 1
 			if attrA.Value != attrB.Value {
+				logrus.Debug("[CoreManager] CheckSameUnit found diff child attr. attrA.Value:", attrA.Value, ",attrB.Value:", attrB.Value)
 				return false
 			}
 		}

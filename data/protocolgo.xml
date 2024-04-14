@@ -13,6 +13,7 @@ TY-->
         <NewEnum EntryName="enum_None" EntryIndex="0" EntryComment=""/>
         <NewEnum EntryName="enum_4" EntryIndex="4" EntryComment=""/>
         <NewEnum EntryName="enum_5" EntryIndex="5" EntryComment=""/>
+        <NewEnum EntryName="enum_6" EntryIndex="6" EntryComment=""/>
     </NewEnum>
 </enum>
 <data>

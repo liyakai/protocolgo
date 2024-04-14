@@ -343,16 +343,21 @@ func (stapp *StApp) CreateTab(tabletype logic.ETableType) fyne.CanvasObject {
 // 创建list的说明和button
 func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.CanvasObject {
 	label := widget.NewLabel(stapp.CoreMgr.GetLableStingByType(tabletype))
-	button := widget.NewButton("Add new", func() {
-		stapp.EditUnit(tabletype, "")
-	})
+	var button *widget.Button
 	if tabletype == logic.TableType_Main {
-		return container.NewStack(label)
+		button = widget.NewButton("Save to File", func() {
+			stapp.CoreMgr.SaveProtoXmlToFile()
+		})
+	} else {
+		button = widget.NewButton("Add new", func() {
+			stapp.EditUnit(tabletype, "")
+		})
 	}
 	// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
 	topContainer := container.NewHSplit(container.NewStack(label), button)
 	topContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
 	return topContainer
+
 }
 
 // 创建新Message的编辑页面
