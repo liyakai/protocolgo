@@ -366,18 +366,19 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	customDialog := dialog.NewCustomWithoutButtons(stapp.CoreMgr.GetEditTableTitle(tabletype, unitname), container.NewVScroll(dialogContent), *stapp.Window)
 	customDialog.Resize(fyne.NewSize(1100, 800))
 
-	inputInfoContainer, unitReq := stapp.GetUnitDetailContainer(customDialog, tabletype, unitname)
+	subtabletype := logic.SubTableType_None
+	if tabletype == logic.TableType_RPC {
+		subtabletype = logic.SubTableType_RpcReq
+	}
+	inputInfoContainer, unitReq := stapp.GetUnitDetailContainer(customDialog, tabletype, subtabletype, unitname)
 	dialogContent.Add(inputInfoContainer)
 
 	var inputInfoContainer2 *fyne.Container
 	var unitAck *logic.StUnitContainer
 	if tabletype == logic.TableType_RPC {
-		isSuccess, rpcAckName := stapp.CoreMgr.GetRpcAckName(unitname)
-		if !isSuccess {
-			logrus.Error("[EditUnit] Failed for GetRpcAckName. tabletype:", tabletype, ",unitname:", unitname, ",rpcAckName:", rpcAckName)
-			return
-		}
-		inputInfoContainer2, unitAck = stapp.GetUnitDetailContainer(customDialog, tabletype, rpcAckName)
+		subtabletype = logic.SubTableType_RpcAck
+		inputInfoContainer2, unitAck = stapp.GetUnitDetailContainer(customDialog, tabletype, subtabletype, unitname)
+		logrus.Debug("[EditUnit] debug unit name. tabletype:", tabletype, ",unitname:", unitname, ",unitname:", unitname)
 	}
 
 	// 获取取消/保存按钮组,以及依赖列表
@@ -405,9 +406,9 @@ func (stapp *StApp) EditUnit(tabletype logic.ETableType, unitname string) {
 	customDialog.Show()
 }
 
-func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, tabletype logic.ETableType, unitname string) (*fyne.Container, *logic.StUnitContainer) {
+func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, tabletype logic.ETableType, subtabletype logic.ESubTableType, unitname string) (*fyne.Container, *logic.StUnitContainer) {
 	bCreateNew := false // 是否是新的节点
-	etreeRow := stapp.CoreMgr.GetEtreeElem(tabletype, unitname)
+	etreeRow := stapp.CoreMgr.GetEtreeElem(tabletype, subtabletype, unitname)
 	if unitname == "" || etreeRow == nil {
 		bCreateNew = true
 		logrus.Info("[EditUnit] Create new unit. tabletype:", tabletype, ",customDialog:", customDialog)
@@ -448,7 +449,7 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 	}
 	// 如果输入框改了,则自动修改下拉框.[互相联动]
 	inputUnitName.OnChanged = func(strProtoName string) {
-		if tabletype != logic.TableType_Protocol || tabletype != logic.TableType_RPC {
+		if tabletype != logic.TableType_Protocol && tabletype != logic.TableType_RPC {
 			return
 		}
 		isSucess, firstFullName, secondFullName := stapp.CoreMgr.DetectFullNameByProtoName(strProtoName)
@@ -470,7 +471,14 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 	} else if tabletype == logic.TableType_Protocol {
 		inputInfoContainer.Add(selectSeerverInputName)
 	} else if tabletype == logic.TableType_RPC {
-		inputInfoContainer.Add(selectSeerverInputName)
+		if subtabletype == logic.SubTableType_RpcReq {
+			inputInfoContainer.Add(selectSeerverInputName)
+		} else if subtabletype == logic.SubTableType_RpcAck {
+			inputInfoContainer.Add(widget.NewLabel(unitname + " Ack:"))
+		} else {
+			logrus.Error("[EduitUnit] Invalid subtabletype:", subtabletype)
+		}
+
 	}
 
 	// 注释
@@ -490,8 +498,7 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 
 	nEntryIndex := 0
 	// 在外部定义一个列表来保存每一行的组件
-	var rowList *[]logic.StRowUnit
-	rowList = new([]logic.StRowUnit)
+	rowList := new([]logic.StRowUnit)
 
 	// 创建一个"Add" 按钮，点击后在VBox中添加新的Entry
 	attrBox := container.NewVBox()
@@ -588,21 +595,27 @@ func (stapp *StApp) GetUnitDetailButtons(stUnitReq *logic.StUnitContainer, stUni
 			// Save logic goes here
 			logrus.Info("[CreateNewMessage]Save. UnitName: " + stUnitReq.GetStUnit().UnitName)
 
-			if !stapp.CheckStUnit(stUnitReq.GetStUnit()) {
-				logrus.Error("[CreateNewMessage] CheckEditMessage failed.")
-				return
+			var stUnits logic.StUnits
+			stUnits.UnitListName = stUnitReq.GetStUnit().UnitName
+			stReqUnit := stUnitReq.GetStUnit()
+			stReqUnit.SubTableType = logic.SubTableType_RpcReq
+			stUnits.UnitList = append(stUnits.UnitList, stReqUnit)
+
+			if stUnitAck != nil {
+				stAckUnit := stUnitAck.GetStUnit()
+				// rpc的回包tag名字与请求tag名字相同
+				stAckUnit.UnitName = stUnitReq.GetStUnit().UnitName
+				stAckUnit.SubTableType = logic.SubTableType_RpcAck
+				stUnits.UnitList = append(stUnits.UnitList, stAckUnit)
 			}
-			if stUnitAck != nil && !stapp.CheckStUnit(stUnitAck.GetStUnit()) {
+
+			if !stapp.CheckStUnits(stUnits) {
 				logrus.Error("[CreateNewMessage] CheckEditMessage failed.")
 				return
 			}
 
-			if !stapp.CoreMgr.AddUpdateUnit(stUnitReq.GetStUnit()) {
-				logrus.Error("[CreateNewMessage] AddUpdateUnit failed.")
-				return
-			}
-			if stUnitAck != nil && !stapp.CoreMgr.AddUpdateUnit(stUnitAck.GetStUnit()) {
-				logrus.Error("[CreateNewMessage] AddUpdateUnit failed.")
+			if !stapp.CoreMgr.AddUpdateUnits(stUnits) {
+				logrus.Error("[CreateNewMessage] AddUpdateUnits failed.")
 				return
 			}
 
@@ -851,6 +864,25 @@ func (stapp *StApp) DestoryEntryTypeInfo(pPopUp **widget.PopUp) {
 		*pPopUp = nil
 	}
 	logrus.Info("[CreateRowForEditUnit] OnMouseOut. ")
+}
+
+// 检查 StUnits
+func (stapp *StApp) CheckStUnits(stUnits logic.StUnits) bool {
+	// 检查 name 的合法性
+	if stUnits.UnitListName == "" || strings.Contains(stUnits.UnitListName, " ") || utils.CheckPositiveInteger(stUnits.UnitListName) || utils.CheckStartWithNum(stUnits.UnitListName) {
+		logrus.Error("CheckStUnits failed. invalid MsgName: ", stUnits.UnitListName)
+		dialog.ShowInformation("Error!", "The name is invalid", *stapp.Window)
+		return false
+	}
+
+	for _, stUnit := range stUnits.UnitList {
+		if !stapp.CheckStUnit(stUnit) {
+			logrus.Error("CheckStUnits failed. invalid stUnit, name : ", stUnit.UnitName, ", subtabletype:", stUnit.SubTableType)
+			dialog.ShowInformation("Error!", "The name is invalid", *stapp.Window)
+			return false
+		}
+	}
+	return true
 }
 
 // 检查 StUnit

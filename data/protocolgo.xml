@@ -66,5 +66,17 @@ TY-->
         <Login2 EntryOption="optional" EntryType="EnumErrorCode" EntryName="enum_2" EntryIndex="2" EntryDefault="Success" EntryComment="登录错误码"/>
     </Login2>
 </protocol>
-<rpc/>
+<rpc>
+    <CS_GetAccount>
+        <CS_GetAccount RpcType = "Req">
+            <!---->
+            <CS_GetAccount EntryOption="optional" EntryType="string" EntryName="accountname" EntryIndex="1" EntryDefault="" EntryComment=""/>
+        </CS_GetAccount>
+        <CS_GetAccount  RpcType = "Ack">
+            <!---->
+            <CS_GetAccount EntryOption="optional" EntryType="string" EntryName="accountname" EntryIndex="1" EntryDefault="" EntryComment=""/>
+            <CS_GetAccount EntryOption="repeated" EntryType="Role" EntryName="rolelist" EntryIndex="2" EntryDefault="" EntryComment=""/>
+        </CS_GetAccount>
+    </CS_GetAccount>
+</rpc>
 <message/>

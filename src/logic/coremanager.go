@@ -14,6 +14,7 @@ import (
 
 // 定义页签类型
 type ETableType int
+type ESubTableType int
 
 const (
 	TableType_None ETableType = iota + 1
@@ -22,6 +23,12 @@ const (
 	TableType_Data
 	TableType_Protocol
 	TableType_RPC
+)
+
+const (
+	SubTableType_None ESubTableType = iota + 1
+	SubTableType_RpcReq
+	SubTableType_RpcAck
 )
 
 type CoreManager struct {
@@ -359,12 +366,19 @@ func (Stapp *CoreManager) SaveProtoXmlToFile() bool {
 	return true
 }
 
-// Add/Update StUnit
-func (Stapp *CoreManager) AddUpdateUnit(stUnit StUnit) bool {
+// Add/Update StUnits
+func (Stapp *CoreManager) AddUpdateUnits(stUnits StUnits) bool {
 	if nil == Stapp.ChangedShowEtree {
-		logrus.Error("AddUpdateUnit failed. Stapp.ChangedShowEtree is nil, open the xml")
+		logrus.Error("AddUpdateUnits failed. Stapp.ChangedShowEtree is nil, open the xml")
 		return false
 	}
+
+	if len(stUnits.UnitList) == 0 {
+		logrus.Error("AddUpdateUnits failed. stUnits is empty")
+		return false
+	}
+	// 获取第一个unit
+	stUnit := stUnits.UnitList[0]
 
 	strRoot := Stapp.GetEtreeRootName(stUnit.TableType)
 
@@ -374,13 +388,72 @@ func (Stapp *CoreManager) AddUpdateUnit(stUnit StUnit) bool {
 		msg_catagory = Stapp.ChangedShowEtree.CreateElement(strRoot)
 	}
 
-	// 在查找枚举中是否有对应的key
-	unit := msg_catagory.FindElement(stUnit.UnitName)
-	if unit != nil {
-		msg_catagory.RemoveChild(msg_catagory.SelectElement(stUnit.UnitName))
+	// 处理 rpc
+	if stUnit.TableType == TableType_RPC {
+		unitlist := msg_catagory.FindElement(stUnits.UnitListName)
+		if unitlist != nil {
+			msg_catagory.RemoveChild(msg_catagory.SelectElement(stUnits.UnitListName))
+		}
+		unitlist = msg_catagory.CreateElement(stUnit.UnitName)
+		for _, rpcStUnit := range stUnits.UnitList {
+			if !Stapp.SaveSingleUnitToElem(unitlist, rpcStUnit) {
+				logrus.Error("AddUpdateUnits failed. rpcStUnit UnitName:", rpcStUnit.UnitName)
+				return false
+			}
+		}
+	} else {
+		if !Stapp.SaveSingleUnitToElem(msg_catagory, stUnit) {
+			logrus.Error("AddUpdateUnits failed. stUnit.UnitName:", stUnit.UnitName)
+			return false
+		}
 	}
-	unit = msg_catagory.CreateElement(stUnit.UnitName)
-	unit.CreateComment(stUnit.UnitComment)
+
+	// Stapp.EnumTableList.Append(editMsg.MsgName)
+	Stapp.SyncListWithETree()
+
+	logrus.Info("AddUpdateUnits from stUnit done. UnitName:", stUnit.UnitName)
+	return true
+}
+
+// 保存单个Unit
+func (Stapp *CoreManager) SaveSingleUnitToElem(mount_point *etree.Element, stUnit StUnit) bool {
+	// 查找是否有对应的key
+	unit := mount_point.FindElement(stUnit.UnitName)
+	if unit != nil {
+		isNeedRemove := true
+		if stUnit.TableType == TableType_RPC {
+			isNeedRemove = false
+			rpcType := unit.SelectAttr("RpcType")
+			if rpcType == nil {
+				logrus.Error("SaveSingleUnitToElem failed. stUnit.TableType is invalid.")
+				return false
+			}
+			if rpcType.Value == "Req" && stUnit.SubTableType == SubTableType_RpcReq {
+				isNeedRemove = true
+			}
+			if rpcType.Value == "Ack" && stUnit.SubTableType == SubTableType_RpcAck {
+				isNeedRemove = true
+			}
+		}
+		if isNeedRemove {
+			mount_point.RemoveChild(mount_point.SelectElement(stUnit.UnitName))
+		}
+
+	}
+	unit = mount_point.CreateElement(stUnit.UnitName)
+	if stUnit.TableType == TableType_RPC {
+		if stUnit.SubTableType == SubTableType_RpcReq {
+			unit.CreateAttr("RpcType", "Req")
+		} else if stUnit.SubTableType == SubTableType_RpcAck {
+			unit.CreateAttr("RpcType", "Ack")
+		} else {
+			logrus.Error("SaveSingleUnitToElem failed. stUnit.SubTableType is invalid.")
+		}
+	}
+	if stUnit.UnitComment != "" {
+		unit.CreateComment(stUnit.UnitComment)
+	}
+
 	for _, row := range stUnit.RowList {
 		enum_atom := unit.CreateElement(stUnit.UnitName)
 		if row.EntryOption != nil {
@@ -397,10 +470,6 @@ func (Stapp *CoreManager) AddUpdateUnit(stUnit StUnit) bool {
 		}
 		enum_atom.CreateAttr("EntryComment", row.EntryComment.Text)
 	}
-	// Stapp.EnumTableList.Append(editMsg.MsgName)
-	Stapp.SyncListWithETree()
-
-	logrus.Info("AddUpdateUnit from stUnit done. enumName:", stUnit.UnitName)
 	return true
 }
 
@@ -547,21 +616,42 @@ func (Stapp *CoreManager) GetEditTableTitle(tabletype ETableType, name string) s
 	}
 }
 
-func (Stapp *CoreManager) GetEtreeElem(tabletype ETableType, rowName string) *etree.Element {
+func (Stapp *CoreManager) GetEtreeElem(tabletype ETableType, subtabletype ESubTableType, rowName string) *etree.Element {
 	strUnitName := Stapp.GetEtreeRootName(tabletype)
-	// 先查找是否有枚举的分类
+	// 先查找是否有具体的分类
 	catagory := Stapp.ChangedShowEtree.FindElement(strUnitName)
 	if catagory == nil {
 		logrus.Error("GetEtreeElem failed. tabletype:", tabletype, ", strUnitName:", strUnitName, ", rowName:", rowName)
 		return nil
 	}
-	// 在查找枚举中是否有对应的key
+	// 再查找是否有对应的key
 	unit := catagory.FindElement(rowName)
 	if unit == nil {
 		logrus.Error("GetEtreeElem failed. Can not find target. tabletype:", tabletype, ", strUnitName:", strUnitName, ", rowName:", rowName)
 		return nil
 	}
-	return unit
+	// 定义结果变量
+	result := unit
+
+	if tabletype == TableType_RPC {
+		for _, rpcUnit := range unit.ChildElements() {
+			rpcType := rpcUnit.SelectAttr("RpcType")
+			if rpcType == nil {
+				logrus.Error("GetEtreeElem failed. TableType_RPC does not have RpcType. tabletype:", tabletype, ", strUnitName:", strUnitName, ", rowName:", rowName, ", rpcUnit.Tag:", rpcUnit.Tag)
+				return nil
+			}
+			if rpcType.Value == "Req" && subtabletype == SubTableType_RpcReq {
+				result = rpcUnit
+				break
+			}
+			if rpcType.Value == "Ack" && subtabletype == SubTableType_RpcAck {
+				result = rpcUnit
+				break
+			}
+		}
+	}
+
+	return result
 }
 
 func (Stapp *CoreManager) SyncListWithETree() bool {
@@ -692,7 +782,7 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryData() {
 	Stapp.DataTableList.Set(newDataListString)
 }
 func (Stapp *CoreManager) SyncListWithETreeCatagoryProtocol() {
-	// 先查找是否有 data 的分类
+	// 先查找是否有 protocol 的分类
 	ptc_catagory := Stapp.ChangedShowEtree.FindElement("protocol")
 	if ptc_catagory == nil {
 		ptc_catagory = Stapp.ChangedShowEtree.CreateElement("protocol")
@@ -744,55 +834,59 @@ func (Stapp *CoreManager) SyncListWithETreeCatagoryProtocol() {
 	Stapp.PtcTableList.Set(newPtcListString)
 }
 func (Stapp *CoreManager) SyncListWithETreeCatagoryRpc() {
-	// 先查找是否有 data 的分类
-	ptc_catagory := Stapp.ChangedShowEtree.FindElement("rpc")
-	if ptc_catagory == nil {
-		ptc_catagory = Stapp.ChangedShowEtree.CreateElement("rpc")
+	// 先查找是否有 rpc 的分类
+	rpc_catagory := Stapp.ChangedShowEtree.FindElement("rpc")
+	if rpc_catagory == nil {
+		rpc_catagory = Stapp.ChangedShowEtree.CreateElement("rpc")
 	}
 	newRpcListString := []string{}
 
 	// 遍历子元素
-	for _, PtcClass := range ptc_catagory.ChildElements() {
-		newRpcListString = append(newRpcListString, PtcClass.Tag)
-		// 枚举类名字映射
-		Stapp.SearchMap[PtcClass.Tag] = PtcClass.Tag
-		Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(PtcClass.Tag)] = PtcClass.Tag
-		Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(PtcClass.Tag)] = PtcClass.Tag
-		// 将注释映射
-		for _, child := range PtcClass.Child {
-			// 检查该子元素是否为注释
-			if comment, ok := child.(*etree.Comment); ok {
-				if comment.Data != "" {
-					Stapp.SearchMap["["+PtcClass.Tag+"]"+comment.Data] = PtcClass.Tag
-					Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(comment.Data)] = PtcClass.Tag
-					Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(comment.Data)] = PtcClass.Tag
+	for _, RpcClass := range rpc_catagory.ChildElements() {
+		newRpcListString = append(newRpcListString, RpcClass.Tag)
+		for _, RpcClassReqAck := range RpcClass.ChildElements() {
+			// 枚举类名字映射
+			Stapp.SearchMap[RpcClass.Tag] = RpcClass.Tag
+			Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToLower(RpcClassReqAck.Tag)] = RpcClass.Tag
+			Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToUpper(RpcClassReqAck.Tag)] = RpcClass.Tag
+			// 将注释映射
+			for _, child := range RpcClass.Child {
+				// 检查该子元素是否为注释
+				if comment, ok := child.(*etree.Comment); ok {
+					if comment.Data != "" {
+						Stapp.SearchMap["["+RpcClass.Tag+"]"+comment.Data] = RpcClass.Tag
+						Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToLower(comment.Data)] = RpcClass.Tag
+						Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToUpper(comment.Data)] = RpcClass.Tag
+					}
+					break
 				}
-				break
+			}
+			for _, RpcClassConent := range RpcClassReqAck.ChildElements() {
+				entryName := RpcClassConent.SelectAttr("EntryName")
+				if entryName != nil && entryName.Value != "" {
+					Stapp.SearchMap["["+RpcClass.Tag+"]"+entryName.Value] = RpcClass.Tag
+					Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToLower(entryName.Value)] = RpcClass.Tag
+					Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToUpper(entryName.Value)] = RpcClass.Tag
+					// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
+				}
+				entryComment := RpcClassConent.SelectAttr("EntryComment")
+				if entryComment != nil && entryComment.Value != "" {
+					Stapp.SearchMap["["+RpcClass.Tag+"]"+entryComment.Value] = RpcClass.Tag
+					Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToLower(entryComment.Value)] = RpcClass.Tag
+					Stapp.SearchMap["["+RpcClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = RpcClass.Tag
+					// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
+				}
+				// 记录依赖
+				entryType := RpcClassConent.SelectAttr("EntryType")
+				if entryType != nil && entryType.Value != "" && !Stapp.CheckProtoType(entryType.Value) {
+					Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], RpcClassReqAck.Tag)
+					// logrus.Debug("SyncListWithETree init References. Value:", entryType.Value, ", RpcClassReqAck.Tag:", RpcClassReqAck.Tag, ",--->Stapp.References:", Stapp.References)
+				}
 			}
 		}
-		for _, PtcClassConent := range PtcClass.ChildElements() {
-			entryName := PtcClassConent.SelectAttr("EntryName")
-			if entryName != nil && entryName.Value != "" {
-				Stapp.SearchMap["["+PtcClass.Tag+"]"+entryName.Value] = PtcClass.Tag
-				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(entryName.Value)] = PtcClass.Tag
-				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(entryName.Value)] = PtcClass.Tag
-				// logrus.Debug("SyncListWithETree entryName.Value:", entryName.Value)
-			}
-			entryComment := PtcClassConent.SelectAttr("EntryComment")
-			if entryComment != nil && entryComment.Value != "" {
-				Stapp.SearchMap["["+PtcClass.Tag+"]"+entryComment.Value] = PtcClass.Tag
-				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToLower(entryComment.Value)] = PtcClass.Tag
-				Stapp.SearchMap["["+PtcClass.Tag+"]"+strings.ToUpper(entryComment.Value)] = PtcClass.Tag
-				// logrus.Debug("SyncListWithETree entryComment.Value:", entryComment.Value)
-			}
-			// 记录依赖
-			entryType := PtcClassConent.SelectAttr("EntryType")
-			if entryType != nil && entryType.Value != "" && !Stapp.CheckProtoType(entryType.Value) {
-				Stapp.References[entryType.Value] = append(Stapp.References[entryType.Value], PtcClass.Tag)
-				// logrus.Debug("SyncListWithETree init References. Value:", entryType.Value, ", MsgClass.Tag:", MsgClass.Tag, ",--->Stapp.References:", Stapp.References)
-			}
-		}
+
 	}
+	// logrus.Debug("SyncListWithETree RpcTableList:", newRpcListString)
 	Stapp.RpcTableList.Set(newRpcListString)
 }
 func (Stapp *CoreManager) SyncMainListWithChangedEtree() {
@@ -841,7 +935,7 @@ func (Stapp *CoreManager) CheckExistSameName(name string) bool {
 
 func (Stapp *CoreManager) GetAllSearchName() []string {
 	// for _, name := range Stapp.SearchBuffer {
-	// 	logrus.Debug("GetAllSearchName SearchBuffer name:", name)
+	//     logrus.Debug("GetAllSearchName SearchBuffer name:", name)
 	// }
 	return Stapp.SearchBuffer
 }
@@ -1002,7 +1096,7 @@ func (Stapp *CoreManager) SearchTableListWithName(name string) ETableType {
 
 // 根据枚举类型获取枚举名字
 func (coremgr *CoreManager) GetVarListOfEnum(strEnumName string) []string {
-	enumElement := coremgr.GetEtreeElem(TableType_Enum, strEnumName)
+	enumElement := coremgr.GetEtreeElem(TableType_Enum, SubTableType_None, strEnumName)
 	if enumElement == nil {
 		logrus.Error("[CoreManager] failed for GetEtreeElem, strEnumName:", strEnumName)
 		return []string{}
@@ -1067,7 +1161,7 @@ func (coremgr *CoreManager) GetEtreeDiff(strTagName string, strOperType string, 
 			diffElem := elemA.Copy()
 			diffElem.CreateAttr("opertype", strOperType)
 			cataDiff.AddChild(diffElem)
-			logrus.Debug("[CoreManager] GetEtreeDiff found. strTagName:", strTagName, ",strOperType:", strOperType)
+			logrus.Debug("[CoreManager] GetEtreeDiff found. strTagName:", strTagName, ",strOperType:", strOperType, ",elemA.Tag:", elemA.Tag)
 		} else {
 			// 双方都存在,那就检查双方是否一致.
 			// 先检查是否已经在diff中.
@@ -1151,36 +1245,4 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 	}
 
 	return true
-}
-
-// 根据枚举类型获取枚举名字
-func (coremgr *CoreManager) GetRpcAckName(strRpcReqName string) (bool, string) {
-	// 特殊的正常情况.新rpc协议,传入空,返回空.
-	if strRpcReqName == "" {
-		return true, ""
-	}
-	// 检查参数
-	if coremgr.ChangedShowEtree == nil {
-		logrus.Error("[CoreManager] GetRpcAckName failed for coremgr.ChangedShowEtree. strRpcReqName:", strRpcReqName)
-		return false, ""
-	}
-	cata_rpc := coremgr.ChangedShowEtree.FindElement("rpc")
-	if cata_rpc == nil {
-		coremgr.ChangedShowEtree.CreateElement("rpc")
-		return true, ""
-	}
-	unit_rpc := cata_rpc.FindElement(strRpcReqName)
-	if unit_rpc == nil {
-		logrus.Error("[CoreManager] GetRpcAckName failed for finding unit_rpc. strRpcReqName:", strRpcReqName)
-		return false, ""
-	}
-	for _, protocolUnit := range unit_rpc.ChildElements() {
-		if protocolUnit.Tag == strRpcReqName {
-			continue
-		} else {
-			return true, protocolUnit.Tag
-		}
-	}
-	logrus.Error("[CoreManager] GetRpcAckName failed for finding nothing. strRpcReqName:", strRpcReqName)
-	return false, ""
 }

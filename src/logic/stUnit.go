@@ -27,13 +27,20 @@ type StStrRowUnit struct {
 	EntryComment string
 }
 
+// Unit 集合
+type StUnits struct {
+	UnitListName string
+	UnitList     []StUnit
+}
+
 // Unit 数据
 type StUnit struct {
-	UnitName    string
-	UnitComment string
-	TableType   ETableType
-	RowList     []StRowUnit
-	IsCreatNew  bool
+	UnitName     string
+	UnitComment  string
+	TableType    ETableType
+	SubTableType ESubTableType
+	RowList      []StRowUnit
+	IsCreatNew   bool
 }
 
 // Unit container
