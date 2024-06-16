@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"os"
 	"sort"
 
 	"fyne.io/fyne/v2/widget"
@@ -116,4 +117,13 @@ func (stUnitContainer *StUnitContainer) GetStUnit() StUnit {
 	stUnit.RowList = *stUnitContainer.RowList
 	stUnit.IsCreatNew = stUnitContainer.IsCreatNew
 	return stUnit
+}
+
+// 检查路径是否存在
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return err == nil
 }

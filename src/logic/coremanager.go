@@ -349,6 +349,32 @@ func (Stapp *CoreManager) GetProtoNameFromSourceTargetServer(strSourceFullName s
 
 }
 
+// 获取proto产生路径
+func (Stapp *CoreManager) GetGenProtoPath() (bool, string) {
+	// 读取Server及其对应的简写
+	configElement := Stapp.Config.FindElement("config")
+	if configElement == nil {
+		logrus.Error("[GetGenProtoPath] read config failed. config is not exist.")
+		return false, ""
+	}
+	configGenProtoPath := configElement.FindElement("genproto")
+	if configGenProtoPath == nil {
+		logrus.Error("[GetGenProtoPath] read config failed. config is not exist.")
+		return false, ""
+	}
+	var strFilePath string
+	absolutePath := configGenProtoPath.SelectAttr("absoluteoutputpath")
+	if absolutePath != nil && absolutePath.Value != "" && PathExists(absolutePath.Value) {
+		strFilePath = absolutePath.Value
+	} else {
+		relativePath := configGenProtoPath.SelectAttr("relativeoutputpath")
+		if relativePath != nil && relativePath.Value != "" && PathExists(relativePath.Value) {
+			strFilePath = relativePath.Value
+		}
+	}
+	return true, strFilePath
+}
+
 func (Stapp *CoreManager) SaveProtoXmlToFile() bool {
 	if nil == Stapp.FileEtree || nil == Stapp.ChangedEtree || nil == Stapp.ChangedShowEtree {
 		logrus.Warn("SaveProtoXmlToFile failed. invalid param.")
@@ -584,7 +610,7 @@ func (Stapp *CoreManager) GetTableListByType(tabletype ETableType) *binding.Stri
 	}
 }
 
-func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
+func (Stapp *CoreManager) GetTopLableStingByType(tabletype ETableType) string {
 	if tabletype == TableType_Main {
 		return "changed list:"
 	} else if tabletype == TableType_Enum {
@@ -597,6 +623,22 @@ func (Stapp *CoreManager) GetLableStingByType(tabletype ETableType) string {
 		return "rpc list:"
 	} else {
 		return "changed list:"
+	}
+}
+
+func (Stapp *CoreManager) GetButtomLableStingByType(tabletype ETableType) string {
+	if tabletype == TableType_Main {
+		return "Function button:"
+		// } else if tabletype == TableType_Enum {
+		// 	return "enum list:"
+		// } else if tabletype == TableType_Data {
+		// 	return "data list:"
+		// } else if tabletype == TableType_Protocol {
+		// 	return "protocol list:"
+		// } else if tabletype == TableType_RPC {
+		// 	return "rpc list:"
+	} else {
+		return "invalid name"
 	}
 }
 

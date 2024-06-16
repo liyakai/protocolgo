@@ -331,7 +331,7 @@ func (stapp *StApp) CreateTab(tabletype logic.ETableType) fyne.CanvasObject {
 	// 使用垂直布局将上部和下部容器组合在一起
 	buttonwithlist := container.NewBorder(
 		stapp.CreateTabListInstruction(tabletype),
-		nil,
+		stapp.CreateButtomCanvas(tabletype),
 		nil,
 		nil,
 		list,
@@ -342,7 +342,7 @@ func (stapp *StApp) CreateTab(tabletype logic.ETableType) fyne.CanvasObject {
 
 // 创建list的说明和button
 func (stapp *StApp) CreateTabListInstruction(tabletype logic.ETableType) fyne.CanvasObject {
-	label := widget.NewLabel(stapp.CoreMgr.GetLableStingByType(tabletype))
+	label := widget.NewLabel(stapp.CoreMgr.GetTopLableStingByType(tabletype))
 	var button *widget.Button
 	if tabletype == logic.TableType_Main {
 		button = widget.NewButton("Save to File", func() {
@@ -953,6 +953,30 @@ func (stapp *StApp) CheckStUnit(stUnit logic.StUnit) bool {
 		return false
 	}
 	return true
+}
+
+// 创建list的说明和button
+func (stapp *StApp) CreateButtomCanvas(tabletype logic.ETableType) fyne.CanvasObject {
+	label := widget.NewLabel(stapp.CoreMgr.GetButtomLableStingByType(tabletype))
+	var buttonGenProto *widget.Button
+	if tabletype == logic.TableType_Main {
+		buttonGenProto = widget.NewButton("Generate proto file", func() {
+			// stapp.CoreMgr.SaveProtoXmlToFile()
+			isSuccess, strProtoPath := stapp.CoreMgr.GetGenProtoPath()
+			if !isSuccess {
+				logrus.Error("Generate proto file failed for GetGenProtoPath.")
+				dialog.ShowInformation("Error!", "Generate proto file failed for GetGenProtoPath.", *stapp.Window)
+				return
+			}
+			logic.GenProto(stapp.CoreMgr.FileEtree, strProtoPath)
+		})
+		// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
+		buttomContainer := container.NewHBox(container.NewStack(label), buttonGenProto)
+		// buttomContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
+		return buttomContainer
+	}
+	return nil
+
 }
 
 // 搜索候选代码
