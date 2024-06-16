@@ -1233,7 +1233,7 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 			return false
 		}
 		indexAttr := 0
-		// 细致检查每个元素是否相同
+		// 细致检查每个属性是否相同
 		for _, attrA := range childA.Attr {
 			attrB := childB.Attr[indexAttr]
 			indexAttr = indexAttr + 1
@@ -1241,6 +1241,11 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 				logrus.Debug("[CoreManager] CheckSameUnit found diff child attr. attrA.Value:", attrA.Value, ",attrB.Value:", attrB.Value)
 				return false
 			}
+		}
+		// 检查每个子元素
+		if !coremgr.CheckSameUnit(childA, childB) {
+			logrus.Debug("[CoreManager] CheckSameUnit found diff child element. childA:", childA, ",childB:", childB)
+			return false
 		}
 	}
 

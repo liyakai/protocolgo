@@ -13,7 +13,6 @@ TY-->
         <NewEnum EntryName="enum_None" EntryIndex="0" EntryComment=""/>
         <NewEnum EntryName="enum_4" EntryIndex="4" EntryComment=""/>
         <NewEnum EntryName="enum_5" EntryIndex="5" EntryComment=""/>
-        <NewEnum EntryName="enum_6" EntryIndex="6" EntryComment=""/>
     </NewEnum>
 </enum>
 <data>
@@ -68,12 +67,11 @@ TY-->
 </protocol>
 <rpc>
     <CS_GetAccount>
-        <CS_GetAccount RpcType = "Req">
-            <!---->
+        <CS_GetAccount RpcType="Req">
             <CS_GetAccount EntryOption="optional" EntryType="string" EntryName="accountname" EntryIndex="1" EntryDefault="" EntryComment=""/>
+            <CS_GetAccount EntryOption="optional" EntryType="fixed64" EntryName="accountid" EntryIndex="2" EntryDefault="" EntryComment=""/>
         </CS_GetAccount>
-        <CS_GetAccount  RpcType = "Ack">
-            <!---->
+        <CS_GetAccount RpcType="Ack">
             <CS_GetAccount EntryOption="optional" EntryType="string" EntryName="accountname" EntryIndex="1" EntryDefault="" EntryComment=""/>
             <CS_GetAccount EntryOption="repeated" EntryType="Role" EntryName="rolelist" EntryIndex="2" EntryDefault="" EntryComment=""/>
         </CS_GetAccount>
