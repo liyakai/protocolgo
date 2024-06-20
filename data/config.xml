@@ -12,5 +12,5 @@
     absoluteoutputpath 为第一优先级绝对路径, 
     relativeoutputpath 为第二优先级相对路径
     -->
-    <genproto absoluteoutputpath="" relativeoutputpath="" />
+    <genproto absoluteoutputpath="" relativeoutputpath="./data/output_protofiles" />
 </config>

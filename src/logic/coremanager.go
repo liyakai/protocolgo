@@ -368,9 +368,16 @@ func (Stapp *CoreManager) GetGenProtoPath() (bool, string) {
 		strFilePath = absolutePath.Value
 	} else {
 		relativePath := configGenProtoPath.SelectAttr("relativeoutputpath")
-		if relativePath != nil && relativePath.Value != "" && PathExists(relativePath.Value) {
-			strFilePath = relativePath.Value
+		if relativePath == nil {
+			logrus.Error("[GetGenProtoPath] read outputpath failed. outputpath is not configed.")
+			return false, ""
 		}
+		strRelativePath := utils.GetWorkRootPath() + "/" + relativePath.Value
+		if !PathExists(strRelativePath) {
+			logrus.Error("[GetGenProtoPath] read outputpath failed. outputpath is invalid. strRelativePath:", strRelativePath)
+			return false, ""
+		}
+		strFilePath = strRelativePath
 	}
 	return true, strFilePath
 }
