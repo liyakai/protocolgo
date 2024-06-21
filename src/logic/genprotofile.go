@@ -24,71 +24,42 @@ func GenProto(filetree *etree.Document, protopath string) {
 	}
 	// 遍历各个类型去生成文件
 	for _, cataElem := range filetree.ChildElements() {
-		switch cataElem.Tag {
-		case "enum":
-			GenEnumProto(cataElem, protopath)
-		case "data":
-			GenDataProto(cataElem, protopath)
-		case "protocol":
-			GenProtocolProto(cataElem, protopath)
-		case "rpc":
-			GenRpcProto(cataElem, protopath)
+		strProtoFilePath := protopath + "/" + cataElem.Tag + ".proto"
+		if !GenStructProto(cataElem, strProtoFilePath) {
+			logrus.Error("[GenProtoFile] failed for GenStructProto. strProtoFilePath:", strProtoFilePath)
+			return
 		}
 	}
 
 }
 
-func GenEnumProto(catatree *etree.Element, protopath string) {
+func GenStructProto(catatree *etree.Element, protopath string) bool {
 	if nil == catatree {
 		logrus.Error("[GenEnumProto] failed for invalid param: catatree.")
-		return
+		return false
 	}
-	strFilePath := protopath + "/" + "enum.proto"
 
 	// 尝试以只写模式打开文件，如果文件不存在，则创建文件,如果文件存在则清空文件.
-	fileHandler, err := os.OpenFile(strFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	fileHandler, err := os.OpenFile(protopath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		logrus.Error("Failed to open or create file:", err, ", filename:", strFilePath)
-		return
+		logrus.Error("[GenStructProto] Failed to open or create file:", err, ", filename:", protopath)
+		return false
 	}
 	defer fileHandler.Close()
 
 	if !GenProtoHead(fileHandler, catatree.Tag) {
-		logrus.Error("GenProtoHead failed. filename:", strFilePath)
-		return
+		logrus.Error("[GenStructProto] GenProtoHead failed. filename:", protopath)
+		return false
 	}
 	if !GenProtoBody(fileHandler, catatree) {
-		logrus.Error("GenProtoBody failed. filename:", strFilePath)
-		return
+		logrus.Error("[GenStructProto] GenProtoBody failed. filename:", protopath)
+		return false
 	}
 
 	fileHandler.Sync()
 
-	logrus.Info("[GenEnumProto] GenEnumProto done. strFilePath:", strFilePath)
-}
-
-func GenDataProto(catatree *etree.Element, protopath string) {
-	if nil == catatree {
-		logrus.Error("[GenDataProto] failed for invalid param: catatree.")
-		return
-	}
-	logrus.Info("[GenDataProto] GenDataProto done.")
-}
-
-func GenProtocolProto(catatree *etree.Element, protopath string) {
-	if nil == catatree {
-		logrus.Error("[GenProtocolProto] failed for invalid param: catatree.")
-		return
-	}
-	logrus.Info("[GenProtocolProto] GenProtocolProto done.")
-}
-
-func GenRpcProto(catatree *etree.Element, protopath string) {
-	if nil == catatree {
-		logrus.Error("[GenRpcProto] failed for invalid param: catatree.")
-		return
-	}
-	logrus.Info("[GenRpcProto] GenRpcProto done.")
+	logrus.Info("[GenStructProto] GenStructProto done. filename:", protopath)
+	return true
 }
 
 // 生成 proto 文件的 head
@@ -160,6 +131,32 @@ func GenStruct(fileHandler *os.File, structType string, structTree *etree.Elemen
 		}
 	}
 
+	if structType == "enum" {
+		if !GenEnumStruct(fileHandler, structType, structTree) {
+			logrus.Error("[GenStruct] Failed to GenEnumStruct:")
+			return false
+		}
+	} else if structType == "rpc" {
+		GenRpcStruct(fileHandler, structTree)
+	} else {
+		if !GenMessageStruct(fileHandler, structType, structTree) {
+			logrus.Error("[GenStruct] Failed to GenMessageStruct:")
+			return false
+		}
+	}
+
+	return true
+}
+
+func GenEnumStruct(fileHandler *os.File, structType string, structTree *etree.Element) bool {
+	if nil == fileHandler {
+		logrus.Error("[GenEnumStruct] Failed to GenStruct for invalid param: fileHandler.")
+		return false
+	}
+	if nil == structTree {
+		logrus.Error("[GenEnumStruct] Failed to GenStruct for invalid param: structTree.")
+		return false
+	}
 	strStructHeadType := "message"
 	if structType == "enum" {
 		strStructHeadType = "enum"
@@ -167,7 +164,7 @@ func GenStruct(fileHandler *os.File, structType string, structTree *etree.Elemen
 
 	_, err := fileHandler.WriteString(strStructHeadType + " " + structTree.Tag + " { \n")
 	if err != nil {
-		logrus.Error("[GenStruct] Failed toWriteString:", err)
+		logrus.Error("[GenEnumStruct] Failed toWriteString:", err)
 		return false
 	}
 
@@ -176,30 +173,148 @@ func GenStruct(fileHandler *os.File, structType string, structTree *etree.Elemen
 		etreeElemIndex := elem.SelectAttr("EntryIndex")
 		etreeElemComment := elem.SelectAttr("EntryComment")
 		if etreeElemName == nil || etreeElemIndex == nil || etreeElemComment == nil {
-			logrus.Error("[GenStruct] Failed to get entry attr, invalid format. elem:", elem)
+			logrus.Error("[GenEnumStruct] Failed to get entry attr, invalid format. elem:", elem)
 			return false
 		}
 		// 元素数据
-		_, err := fileHandler.WriteString("    " + etreeElemName.Value + " = " + etreeElemIndex.Value + ";")
+		_, err := fileHandler.WriteString("	" + etreeElemName.Value + "		=	" + etreeElemIndex.Value + ";")
 		if err != nil {
-			logrus.Error("[GenStruct] Failed toWriteString:", err)
+			logrus.Error("[GenEnumStruct] Failed toWriteString:", err)
 			return false
 		}
 		// 注释
 		strComment := "\n"
 		if etreeElemComment.Value != "" {
-			strComment = "    //" + etreeElemComment.Value + " \n"
+			strComment = "	//" + etreeElemComment.Value + "	\n"
 		}
 		_, err = fileHandler.WriteString(strComment)
 		if err != nil {
-			logrus.Error("[GenStruct] Failed toWriteString:", err)
+			logrus.Error("[GenEnumStruct] Failed toWriteString:", err)
 			return false
 		}
 	}
 
 	_, err = fileHandler.WriteString("} \n\n")
 	if err != nil {
-		logrus.Error("[GenStruct] Failed toWriteString:", err)
+		logrus.Error("[GenEnumStruct] Failed toWriteString:", err)
+		return false
+	}
+
+	return true
+}
+
+func GenRpcStruct(fileHandler *os.File, structTree *etree.Element) bool {
+	if nil == fileHandler {
+		logrus.Error("[GenRpcStruct] Failed to GenStruct for invalid param: fileHandler.")
+		return false
+	}
+	if nil == structTree {
+		logrus.Error("[GenRpcStruct] Failed to GenStruct for invalid param: structTree.")
+		return false
+	}
+	for _, elemRPC := range structTree.ChildElements() {
+		strStructHeadType := "message"
+		etreeRpcType := elemRPC.SelectAttr("RpcType")
+		if etreeRpcType == nil {
+			logrus.Error("[GenRpcStruct] Failed to get RpcType, invalid format. elem:", elemRPC)
+			return false
+		}
+		_, err := fileHandler.WriteString(strStructHeadType + " " + elemRPC.Tag + etreeRpcType.Value + " { \n")
+		if err != nil {
+			logrus.Error("[GenRpcStruct] Failed toWriteString:", err)
+			return false
+		}
+
+		for _, elem := range elemRPC.ChildElements() {
+			etreeElemOption := elem.SelectAttr("EntryOption")
+			etreeElemType := elem.SelectAttr("EntryType")
+			etreeElemName := elem.SelectAttr("EntryName")
+			etreeElemIndex := elem.SelectAttr("EntryIndex")
+			etreeElemComment := elem.SelectAttr("EntryComment")
+			if etreeElemOption == nil || etreeElemType == nil || etreeElemName == nil || etreeElemIndex == nil || etreeElemComment == nil {
+				logrus.Error("[GenRpcStruct] Failed to get entry attr, invalid format. elem:", elem)
+				return false
+			}
+			// 元素数据
+			_, err := fileHandler.WriteString("	" + etreeElemOption.Value + "	" + etreeElemType.Value + "			" + etreeElemName.Value + "	=	" + etreeElemIndex.Value + ";")
+			if err != nil {
+				logrus.Error("[GenRpcStruct] Failed toWriteString:", err)
+				return false
+			}
+			// 注释
+			strComment := "\n"
+			if etreeElemComment.Value != "" {
+				strComment = "	//" + etreeElemComment.Value + "	\n"
+			}
+			_, err = fileHandler.WriteString(strComment)
+			if err != nil {
+				logrus.Error("[GenRpcStruct] Failed toWriteString:", err)
+				return false
+			}
+		}
+
+		_, err = fileHandler.WriteString("} \n\n")
+		if err != nil {
+			logrus.Error("[GenRpcStruct] Failed toWriteString:", err)
+			return false
+		}
+	}
+
+	return true
+}
+
+func GenMessageStruct(fileHandler *os.File, structType string, structTree *etree.Element) bool {
+	if nil == fileHandler {
+		logrus.Error("[GenMessageStruct] Failed to GenStruct for invalid param: fileHandler.")
+		return false
+	}
+	if nil == structTree {
+		logrus.Error("[GenMessageStruct] Failed to GenStruct for invalid param: structTree.")
+		return false
+	}
+
+	strStructHeadType := "message"
+	if structType == "enum" {
+		strStructHeadType = "enum"
+	}
+
+	_, err := fileHandler.WriteString(strStructHeadType + " " + structTree.Tag + " { \n")
+	if err != nil {
+		logrus.Error("[GenMessageStruct] Failed toWriteString:", err)
+		return false
+	}
+
+	for _, elem := range structTree.ChildElements() {
+		etreeElemOption := elem.SelectAttr("EntryOption")
+		etreeElemType := elem.SelectAttr("EntryType")
+		etreeElemName := elem.SelectAttr("EntryName")
+		etreeElemIndex := elem.SelectAttr("EntryIndex")
+		etreeElemComment := elem.SelectAttr("EntryComment")
+		if etreeElemOption == nil || etreeElemType == nil || etreeElemName == nil || etreeElemIndex == nil || etreeElemComment == nil {
+			logrus.Error("[GenMessageStruct] Failed to get entry attr, invalid format. elem:", elem)
+			return false
+		}
+		// 元素数据
+		_, err := fileHandler.WriteString("	" + etreeElemOption.Value + "	" + etreeElemType.Value + "			" + etreeElemName.Value + "	=	" + etreeElemIndex.Value + ";")
+		if err != nil {
+			logrus.Error("[GenMessageStruct] Failed toWriteString:", err)
+			return false
+		}
+		// 注释
+		strComment := "\n"
+		if etreeElemComment.Value != "" {
+			strComment = "	//" + etreeElemComment.Value + "	\n"
+		}
+		_, err = fileHandler.WriteString(strComment)
+		if err != nil {
+			logrus.Error("[GenMessageStruct] Failed toWriteString:", err)
+			return false
+		}
+	}
+
+	_, err = fileHandler.WriteString("} \n\n")
+	if err != nil {
+		logrus.Error("[GenMessageStruct] Failed toWriteString:", err)
 		return false
 	}
 
