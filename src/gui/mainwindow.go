@@ -150,6 +150,16 @@ func (stapp *StApp) CreateMenuItem() {
 		}, *stapp.Window)
 		saveDialog.Resize(fyne.NewSize(1100, 800))
 		saveDialog.SetFileName("protocolgo.xml")
+
+		// 创建退出快捷键
+		(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+			// 在这里检查按下的是不是 Esc 键
+			if ke.Name == fyne.KeyEscape {
+				// 如果是 Esc 键，隐藏自定义对话框
+				saveDialog.Hide()
+			}
+		})
+
 		saveDialog.Show()
 
 	})
@@ -159,7 +169,13 @@ func (stapp *StApp) CreateMenuItem() {
 		file_picker := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			// Check for errors
 			if err != nil {
-				log.Println("Failed to NewFileOpen:", err)
+				logrus.Info("Failed to NewFileOpen:", err)
+				return
+			}
+			if reader == nil {
+				// 用户点击了取消
+				logrus.Info("User canceled to open config xml.")
+				// dialog.ShowInformation("Cancelled", "File selection cancelled", *stapp.Window)
 				return
 			}
 			xml_file_path := reader.URI().Path()
@@ -171,8 +187,37 @@ func (stapp *StApp) CreateMenuItem() {
 		}, *stapp.Window)
 		file_picker.Resize(fyne.NewSize(1100, 800))
 		file_picker.SetFilter(storage.NewExtensionFileFilter([]string{".txt", ".xml"}))
+
+		// 创建退出快捷键
+		(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+			// 在这里检查按下的是不是 Esc 键
+			if ke.Name == fyne.KeyEscape {
+				// 如果是 Esc 键，隐藏自定义对话框
+				file_picker.Hide()
+			}
+		})
+
 		// 显示打开文件的UI
 		file_picker.Show()
+
+	})
+	// 打开远程配置
+	openRemoteConfig := fyne.NewMenuItem("open ssh..", func() {
+		dialogContent := container.NewGridWithRows(4)
+		customDialog := dialog.NewCustomWithoutButtons("open remote xml", container.NewVScroll(dialogContent), *stapp.Window)
+		customDialog.Resize(fyne.NewSize(1100, 800))
+
+		dialogContent.Add(stapp.GetRemoteSshUI(customDialog))
+		// 创建退出快捷键
+		(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+			// 在这里检查按下的是不是 Esc 键
+			if ke.Name == fyne.KeyEscape {
+				// 如果是 Esc 键，隐藏自定义对话框
+				customDialog.Hide()
+			}
+		})
+
+		customDialog.Show()
 
 	})
 	// 保存菜单项
@@ -192,7 +237,7 @@ func (stapp *StApp) CreateMenuItem() {
 
 	})
 	// 创建一个一级菜单
-	fileMenu := fyne.NewMenu("File", newMenuItem, openMenuItem, saveMenuItem)
+	fileMenu := fyne.NewMenu("File", newMenuItem, openMenuItem, openRemoteConfig, saveMenuItem)
 	// 创建菜单栏
 	menu := fyne.NewMainMenu(fileMenu)
 
@@ -568,6 +613,11 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 
 	// inputInfoContainer.Add(container.NewCenter(buttons))
 	return inputInfoContainer, &stUnitContainer
+}
+
+func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Container {
+	sshInfoContainer := container.NewVBox()
+	return sshInfoContainer
 }
 
 func (stapp *StApp) GetUnitDetailButtons(stUnitReq *logic.StUnitContainer, stUnitAck *logic.StUnitContainer, customDialog *dialog.CustomDialog) (*fyne.Container, *fyne.Container) {
