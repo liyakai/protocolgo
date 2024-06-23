@@ -3,6 +3,8 @@ package logic
 import (
 	"bufio"
 	"os"
+	"os/exec"
+	"protocolgo/src/utils"
 	"strings"
 
 	"github.com/beevik/etree"
@@ -69,12 +71,29 @@ func GenProtoHead(fileHandler *os.File, packageName string) bool {
 		return false
 	}
 
+	strImport := ""
+	if packageName == "data" {
+		strImport = `
+import "enum.proto";
+
+
+`
+	} else if packageName == "protocol" || packageName == "rpc" {
+		strImport = `
+import "enum.proto";
+import "data.proto";
+
+
+`
+	}
+
 	// 写入 Proto3 文件头
 	_, err := fileHandler.WriteString(`syntax = "proto3";
 
-package ` + packageName + `;
+// package ` + packageName + `;
+option go_package = "example/` + packageName + `";
 
-`)
+` + strImport)
 	if err != nil {
 		logrus.Error("[GenProtoHead] Failed toWriteString:", err)
 		return false
@@ -319,4 +338,36 @@ func GenMessageStruct(fileHandler *os.File, structType string, structTree *etree
 	}
 
 	return true
+}
+
+func GenPbFromProto(protopath string, outputPath string) {
+	if protopath == "" || !PathExists(protopath) {
+		logrus.Error("[GenPbFromProto] failed for invalid param: protopath:", protopath)
+		return
+	}
+	if outputPath == "" || !PathExists(outputPath) {
+		logrus.Error("[GenPbFromProto] failed for invalid param: outputPath:", outputPath)
+		return
+	}
+	logrus.Debug("[GenPbFromProto] param:protopath:", protopath, ",outputPath:", outputPath)
+	// 定义要执行的 protoc 命令，包括所有需要的参数
+	// 这里以生成 Go 相关代码为例，确保您已定义好 .proto 文件
+	command := utils.GetWorkRootPath() + "/data/protoc"
+	// args := []string{"./output_protofiles/*.proto"}
+	args := []string{"--proto_path=" + protopath, "--go_out=" + outputPath, "--go_opt=paths=source_relative", utils.GetWorkRootPath() + "/data/output_protofiles/*.proto"}
+
+	// ./protoc --proto_path=./output_protofiles --go_out=./output_pbfiles --go_opt=paths=source_relative ./output_protofiles/*.proto
+	// 使用 exec.Command 创建命令
+	cmd := exec.Command(command, args...)
+
+	// 执行命令
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logrus.Error("Error executing protoc command:", err, ",output:", string(output), ",command:", command)
+		return
+	}
+
+	// 打印命令输出
+	logrus.Info("protoc command output:", string(output))
+
 }

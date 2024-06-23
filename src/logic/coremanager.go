@@ -107,7 +107,7 @@ func (Stapp *CoreManager) ReadXmlFromFile(filename string) {
 	}
 	Stapp.FileEtree = etree.NewDocument()
 	if err := Stapp.FileEtree.ReadFromFile(filename); err != nil {
-		logrus.Error("ReadXmlFromFile failed. err:", err)
+		logrus.Error("ReadXmlFromFile failed. err:", err, ",filename:", filename)
 		panic(err)
 	}
 
@@ -368,6 +368,39 @@ func (Stapp *CoreManager) GetGenProtoPath() (bool, string) {
 		strFilePath = absolutePath.Value
 	} else {
 		relativePath := configGenProtoPath.SelectAttr("relativeoutputpath")
+		if relativePath == nil {
+			logrus.Error("[GetGenProtoPath] read outputpath failed. outputpath is not configed.")
+			return false, ""
+		}
+		strRelativePath := utils.GetWorkRootPath() + "/" + relativePath.Value
+		if !PathExists(strRelativePath) {
+			logrus.Error("[GetGenProtoPath] read outputpath failed. outputpath is invalid. strRelativePath:", strRelativePath)
+			return false, ""
+		}
+		strFilePath = strRelativePath
+	}
+	return true, strFilePath
+}
+
+// 获取 pb 产生路径
+func (Stapp *CoreManager) GetGenPbPath() (bool, string) {
+	// 读取Server及其对应的简写
+	configElement := Stapp.Config.FindElement("config")
+	if configElement == nil {
+		logrus.Error("[GetGenProtoPath] read config failed. config is not exist.")
+		return false, ""
+	}
+	configGenPbPath := configElement.FindElement("genpb")
+	if configGenPbPath == nil {
+		logrus.Error("[GetGenProtoPath] read config failed. config is not exist.")
+		return false, ""
+	}
+	var strFilePath string
+	absolutePath := configGenPbPath.SelectAttr("absoluteoutputpath")
+	if absolutePath != nil && absolutePath.Value != "" && PathExists(absolutePath.Value) {
+		strFilePath = absolutePath.Value
+	} else {
+		relativePath := configGenPbPath.SelectAttr("relativeoutputpath")
 		if relativePath == nil {
 			logrus.Error("[GetGenProtoPath] read outputpath failed. outputpath is not configed.")
 			return false, ""

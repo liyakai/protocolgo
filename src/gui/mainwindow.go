@@ -543,10 +543,16 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 
 	// 增加新的字段
 	addButton := widget.NewButton("Add field", func() {
-		nEntryIndex = nEntryIndex + 1
+		if tabletype != logic.TableType_Enum {
+			nEntryIndex = nEntryIndex + 1
+		}
 		stapp.CreateRowForEditUnit(tabletype, logic.StStrRowUnit{
 			EntryIndex: strconv.Itoa(nEntryIndex),
 		}, attrBox, rowList)
+
+		if tabletype == logic.TableType_Enum {
+			nEntryIndex = nEntryIndex + 1
+		}
 	})
 
 	// 创建可以新增列的container
@@ -970,8 +976,24 @@ func (stapp *StApp) CreateButtomCanvas(tabletype logic.ETableType) fyne.CanvasOb
 			}
 			logic.GenProto(stapp.CoreMgr.FileEtree, strProtoPath)
 		})
+		buttonGenProtoToPb := widget.NewButton("Generate pb", func() {
+			// stapp.CoreMgr.SaveProtoXmlToFile()
+			isSuccess, strProtoPath := stapp.CoreMgr.GetGenProtoPath()
+			if !isSuccess {
+				logrus.Error("Generate pb file failed for GetGenProtoPath.")
+				dialog.ShowInformation("Error!", "Generate pb file failed for GetGenProtoPath.", *stapp.Window)
+				return
+			}
+			isSuccess, strPbPath := stapp.CoreMgr.GetGenPbPath()
+			if !isSuccess {
+				logrus.Error("Generate pb file failed for GetGenPbPath.")
+				dialog.ShowInformation("Error!", "Generate pb file failed for GetGenPbPath.", *stapp.Window)
+				return
+			}
+			logic.GenPbFromProto(strProtoPath, strPbPath)
+		})
 		// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
-		buttomContainer := container.NewHBox(container.NewStack(label), buttonGenProto)
+		buttomContainer := container.NewHBox(container.NewStack(label), buttonGenProto, buttonGenProtoToPb)
 		// buttomContainer.Offset = 0.75 //设置searchEntry 占 3/4， searchButton 占 1/4
 		return buttomContainer
 	}

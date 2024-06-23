@@ -1,19 +1,23 @@
 <enum>
     <EnumErrorCode>
         <!--错误码枚举-->
-        <EnumErrorCode EntryName="Success" EntryIndex="1" EntryComment="成功"/>
-        <EnumErrorCode EntryName="Failed" EntryIndex="2" EntryComment="莫名失败"/>
+        <EnumErrorCode EntryName="Success" EntryIndex="0" EntryComment="成功"/>
+        <EnumErrorCode EntryName="Failed" EntryIndex="1" EntryComment="莫名失败"/>
     </EnumErrorCode>
     <NewEnum>
         <!--TR
 TY-->
+        <NewEnum EntryName="enum_None" EntryIndex="0" EntryComment=""/>
         <NewEnum EntryName="enum_1" EntryIndex="1" EntryComment="你好吗"/>
         <NewEnum EntryName="enum_2" EntryIndex="2" EntryComment=""/>
         <NewEnum EntryName="enum_3" EntryIndex="3" EntryComment=""/>
-        <NewEnum EntryName="enum_None" EntryIndex="0" EntryComment=""/>
         <NewEnum EntryName="enum_4" EntryIndex="4" EntryComment=""/>
         <NewEnum EntryName="enum_5" EntryIndex="5" EntryComment=""/>
     </NewEnum>
+    <LoginType>
+        <LoginType EntryName="LoginType_None" EntryIndex="0" EntryComment=""/>
+        <LoginType EntryName="LoginType_Normal" EntryIndex="1" EntryComment=""/>
+    </LoginType>
 </enum>
 <data>
     <Role>
@@ -77,4 +81,3 @@ TY-->
         </CS_GetAccount>
     </CS_GetAccount>
 </rpc>
-

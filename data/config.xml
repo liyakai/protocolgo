@@ -8,9 +8,14 @@
         <servershort FullName="ZoneGroup" ClientShortName="Z" ServerShortName="ZG"/>
         <servershort FullName="CrossServer" ClientShortName="R" ServerShortName="CR"/>
     </servershort>
-    <!-- 产生proto文件的路径:
+    <!-- 产生 proto 文件的路径:
     absoluteoutputpath 为第一优先级绝对路径, 
-    relativeoutputpath 为第二优先级相对路径
+    relativeoutputpath 为第二优先级相对路径,
     -->
     <genproto absoluteoutputpath="" relativeoutputpath="./data/output_protofiles" />
+    <!-- 产生 pb 文件的路径:
+    absoluteoutputpath 为第一优先级绝对路径, 
+    relativeoutputpath 为第二优先级相对路径,
+    -->
+    <genpb absoluteoutputpath="" relativeoutputpath="./data/output_pbfiles" />
 </config>
