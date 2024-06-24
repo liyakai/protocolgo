@@ -1040,7 +1040,12 @@ func (stapp *StApp) CreateButtomCanvas(tabletype logic.ETableType) fyne.CanvasOb
 				dialog.ShowInformation("Error!", "Generate pb file failed for GetGenPbPath.", *stapp.Window)
 				return
 			}
-			logic.GenPbFromProto(strProtoPath, strPbPath)
+			isSuccess, strError := logic.GenPbFromProto(strProtoPath, strPbPath)
+			if !isSuccess {
+				logrus.Error("Generate pb file failed for ", strError)
+				dialog.ShowInformation("Error!", "Generate pb file failed for "+strError, *stapp.Window)
+				return
+			}
 		})
 		// 使用HBox将searchEntry和searchButton安排在同一行，并使用HSplit来设置比例
 		buttomContainer := container.NewHBox(container.NewStack(label), buttonGenProto, buttonGenProtoToPb)

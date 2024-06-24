@@ -52,7 +52,8 @@ protocolgo
     15:保存编辑.  
 
 ### 3.TODO
-1.xml向proto转化.  
-2.已有proto向xml转化.  
-3.展示新增项和修改项.  
-4.对所选项进行proto生成.  
+~~1.xml向proto转化.  ~~
+2.已有proto向xml转化.  ~~
+~~3.展示新增项和修改项.  ~~
+~~4.对所选项进行proto生成.  ~~
+~~5.从proto生成pb代码.~~

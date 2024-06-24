@@ -340,14 +340,14 @@ func GenMessageStruct(fileHandler *os.File, structType string, structTree *etree
 	return true
 }
 
-func GenPbFromProto(protopath string, outputPath string) {
+func GenPbFromProto(protopath string, outputPath string) (bool, string) {
 	if protopath == "" || !PathExists(protopath) {
 		logrus.Error("[GenPbFromProto] failed for invalid param: protopath:", protopath)
-		return
+		return false, "[GenPbFromProto] failed for invalid param"
 	}
 	if outputPath == "" || !PathExists(outputPath) {
 		logrus.Error("[GenPbFromProto] failed for invalid param: outputPath:", outputPath)
-		return
+		return false, "[GenPbFromProto] failed for invalid param"
 	}
 	logrus.Debug("[GenPbFromProto] param:protopath:", protopath, ",outputPath:", outputPath)
 	// 定义要执行的 protoc 命令，包括所有需要的参数
@@ -364,10 +364,10 @@ func GenPbFromProto(protopath string, outputPath string) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		logrus.Error("Error executing protoc command:", err, ",output:", string(output), ",command:", command)
-		return
+		return false, err.Error() + string(output)
 	}
 
 	// 打印命令输出
 	logrus.Info("protoc command output:", string(output))
-
+	return true, ""
 }
