@@ -205,7 +205,7 @@ func (stapp *StApp) CreateMenuItem() {
 	openRemoteConfig := fyne.NewMenuItem("open ssh..", func() {
 		dialogContent := container.NewGridWithRows(4)
 		customDialog := dialog.NewCustomWithoutButtons("open remote xml", container.NewVScroll(dialogContent), *stapp.Window)
-		customDialog.Resize(fyne.NewSize(1100, 800))
+		customDialog.Resize(fyne.NewSize(600, 400))
 
 		dialogContent.Add(stapp.GetRemoteSshUI(customDialog))
 		// 创建退出快捷键
@@ -617,6 +617,57 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 
 func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Container {
 	sshInfoContainer := container.NewVBox()
+	// ip 行
+	labelIpEntry := widget.NewLabel("ip:")
+	labelIpEntry.Alignment = fyne.TextAlignTrailing
+	inputIpEntry := widget.NewEntry()
+	inputIpEntry.SetPlaceHolder("Enter ip address...")
+	splitInputIP := container.NewHSplit(labelIpEntry, inputIpEntry)
+	splitInputIP.Offset = 0.15
+	sshInfoContainer.Add(splitInputIP)
+
+	// port 行
+	labelPortEntry := widget.NewLabel("port:")
+	labelPortEntry.Alignment = fyne.TextAlignTrailing
+	inputPortEntry := widget.NewEntry()
+	inputPortEntry.SetPlaceHolder("Enter port...")
+	splitInputPort := container.NewHSplit(labelPortEntry, inputPortEntry)
+	splitInputPort.Offset = 0.15
+	sshInfoContainer.Add(splitInputPort)
+
+	// use 行
+	labelUserEntry := widget.NewLabel("user:")
+	labelUserEntry.Alignment = fyne.TextAlignTrailing
+	inputUserEntry := widget.NewEntry()
+	inputUserEntry.SetPlaceHolder("Enter user name...")
+	splitInputUser := container.NewHSplit(labelUserEntry, inputUserEntry)
+	splitInputUser.Offset = 0.15
+	sshInfoContainer.Add(splitInputUser)
+
+	// password 行
+	labelPasswordEntry := widget.NewLabel("passwd:")
+	labelPasswordEntry.Alignment = fyne.TextAlignTrailing
+	inputPasswordEntry := widget.NewEntry()
+	inputPasswordEntry.SetPlaceHolder("Enter password...")
+	inputPasswordEntry.Password = true
+	splitInputPassword := container.NewHSplit(labelPasswordEntry, inputPasswordEntry)
+	splitInputPassword.Offset = 0.15
+	sshInfoContainer.Add(splitInputPassword)
+
+	// 增加新的字段
+	connectButton := widget.NewButton("Connect", func() {
+		isSucc, strError := stapp.CoreMgr.OpenSSH(labelIpEntry.Text, inputPortEntry.Text, inputUserEntry.Text, labelPasswordEntry.Text)
+		if !isSucc {
+			dialog.ShowInformation("Error!", "OpenSSH failed for "+strError, *stapp.Window)
+			logrus.Error("[GetRemoteSshUI] OpenSSH failed for " + strError)
+		}
+	})
+	// 设置按钮样式和居中对齐
+	connectButton.Importance = widget.HighImportance
+	connectButton.Resize(connectButton.MinSize()) // 使按钮显示正常大小
+	connectButton.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
+	sshInfoContainer.Add(connectButton)
+
 	return sshInfoContainer
 }
 

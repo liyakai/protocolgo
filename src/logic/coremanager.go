@@ -1333,3 +1333,15 @@ func (coremgr *CoreManager) CheckSameUnit(unitA *etree.Element, unitB *etree.Ele
 
 	return true
 }
+
+func (coremgr *CoreManager) OpenSSH(ip string, port string, username string, password string) (bool, string) {
+	if !IsValidIP(ip) {
+		logrus.Error("[CoreManager] OpenSSH failed for invalid ip:", ip)
+		return false, "invalid ip:" + ip
+	}
+	if !IsValidPort(port) {
+		logrus.Error("[CoreManager] OpenSSH failed for invalid port:", port)
+		return false, "invalid port:" + port
+	}
+	return true, ""
+}
