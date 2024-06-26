@@ -33,19 +33,20 @@ const (
 )
 
 type CoreManager struct {
-	FileEtree        *etree.Document     // 保存到文件的 etree
-	ChangedEtree     *etree.Document     // 变化的 etree
-	ChangedShowEtree *etree.Document     // 包含源数据和变化数据,用于展示的 etree
-	XmlFilePath      string              // 打开的Xml文件路径
-	Config           *etree.Document     // 配置数据
-	MainTableList    binding.StringList  // Main 数据源
-	EnumTableList    binding.StringList  // enum 数据源
-	DataTableList    binding.StringList  // data 数据源
-	PtcTableList     binding.StringList  // ptc 数据源
-	RpcTableList     binding.StringList  // rpc 数据源
-	SearchMap        map[string]string   // 所有可搜索元素到列表名字的映射
-	SearchBuffer     []string            // 所有可所有元素列表
-	References       map[string][]string // 字段的依赖列表
+	FileEtree         *etree.Document     // 保存到文件的 etree
+	ChangedEtree      *etree.Document     // 变化的 etree
+	ChangedShowEtree  *etree.Document     // 包含源数据和变化数据,用于展示的 etree
+	ProtoXmlFilePath  string              // 打开的 proto Xml 文件路径
+	Config            *etree.Document     // 配置数据
+	ConfigXmlFilePath string              // 打开的配置xml文件路径
+	MainTableList     binding.StringList  // Main 数据源
+	EnumTableList     binding.StringList  // enum 数据源
+	DataTableList     binding.StringList  // data 数据源
+	PtcTableList      binding.StringList  // ptc 数据源
+	RpcTableList      binding.StringList  // rpc 数据源
+	SearchMap         map[string]string   // 所有可搜索元素到列表名字的映射
+	SearchBuffer      []string            // 所有可所有元素列表
+	References        map[string][]string // 字段的依赖列表
 
 	SshClient *ssh.Client // ssh 连接
 }
@@ -62,22 +63,22 @@ func (Stapp *CoreManager) Init() {
 	Stapp.ReadConfigFromFile(configXmlPath)
 
 	// 读取协议xml文件
-	Stapp.XmlFilePath = utils.GetWorkRootPath() + "/data/protocolgo.xml"
-	Stapp.ReadXmlFromFile(Stapp.XmlFilePath)
+	Stapp.ProtoXmlFilePath = utils.GetWorkRootPath() + "/data/protocolgo.xml"
+	Stapp.ReadXmlFromFile(Stapp.ProtoXmlFilePath)
 
-	logrus.Info("Init CoreManager done. xml file path:", Stapp.XmlFilePath)
+	logrus.Info("Init CoreManager done. xml file path:", Stapp.ProtoXmlFilePath)
 }
 
 func (Stapp *CoreManager) CreateNewXml() {
 	// 如果现在打开的xml不为空,则先保存现在打开的xml
 	if nil != Stapp.FileEtree {
-		Stapp.SaveToXmlFile()
+		Stapp.SaveToProtoXmlFile()
 	}
 	// 创建新的xml
 	Stapp.FileEtree = etree.NewDocument()
 	Stapp.FileEtree.CreateProcInst("xml", `version="1.0" encoding="UTF-8"`)
 	Stapp.FileEtree.CreateProcInst("xml-stylesheet", `type="text/xsl" href="style.xsl"`)
-	Stapp.SaveToXmlFile()
+	Stapp.SaveToProtoXmlFile()
 
 	// 同时创建修改的 etree
 	Stapp.ChangedEtree = etree.NewDocument()
@@ -88,7 +89,7 @@ func (Stapp *CoreManager) CreateNewXml() {
 func (Stapp *CoreManager) ReadXmlFromReader(reader io.Reader) {
 	// 如果现在打开的xml不为空,则先保存现在打开的xml
 	if nil != Stapp.FileEtree {
-		Stapp.CloseCurrXmlFile()
+		Stapp.CloseCurrProtoXmlFile()
 	}
 	Stapp.FileEtree = etree.NewDocument()
 	if _, err := Stapp.FileEtree.ReadFrom(reader); err != nil {
@@ -106,7 +107,7 @@ func (Stapp *CoreManager) ReadXmlFromReader(reader io.Reader) {
 func (Stapp *CoreManager) ReadXmlFromFile(filename string) {
 	// 如果现在打开的xml不为空,则先保存现在打开的xml
 	if nil != Stapp.FileEtree {
-		Stapp.CloseCurrXmlFile()
+		Stapp.CloseCurrProtoXmlFile()
 	}
 	Stapp.FileEtree = etree.NewDocument()
 	if err := Stapp.FileEtree.ReadFromFile(filename); err != nil {
@@ -122,30 +123,30 @@ func (Stapp *CoreManager) ReadXmlFromFile(filename string) {
 	logrus.Info("ReadXmlFromFile done.")
 }
 
-func (Stapp *CoreManager) SaveToXmlFile() bool {
-	if nil == Stapp.FileEtree || Stapp.XmlFilePath == "" {
-		logrus.Warn("SaveToXmlFile failed. invalid param. Stapp.XmlFilePath:", Stapp.XmlFilePath)
+func (Stapp *CoreManager) SaveToProtoXmlFile() bool {
+	if nil == Stapp.FileEtree || Stapp.ProtoXmlFilePath == "" {
+		logrus.Warn("SaveToProtoXmlFile failed. invalid param. Stapp.ProtoXmlFilePath:", Stapp.ProtoXmlFilePath)
 		return false
 	}
 	Stapp.FileEtree.Indent(4)
-	Stapp.FileEtree.WriteToFile(Stapp.XmlFilePath)
-	logrus.Info("SaveToXmlFile done. XmlFilePath:", Stapp.XmlFilePath)
+	Stapp.FileEtree.WriteToFile(Stapp.ProtoXmlFilePath)
+	logrus.Info("SaveToProtoXmlFile done. ProtoXmlFilePath:", Stapp.ProtoXmlFilePath)
 	return true
 }
 
-func (Stapp *CoreManager) CloseCurrXmlFile() {
+func (Stapp *CoreManager) CloseCurrProtoXmlFile() {
 	if nil == Stapp.FileEtree {
-		logrus.Info("Need not close the xml. Stapp.FileEtree is nil.")
+		logrus.Info("Need not close the proto xml. Stapp.FileEtree is nil.")
 		return
 	}
-	Stapp.SaveToXmlFile()
-	Stapp.XmlFilePath = ""
-	logrus.Info("CloseCurrXmlFile done.")
+	Stapp.SaveToProtoXmlFile()
+	Stapp.ProtoXmlFilePath = ""
+	logrus.Info("CloseCurrProtoXmlFile done.")
 }
 
 func (Stapp *CoreManager) SetCurrXmlFilePath(currFilePath string) {
-	Stapp.CloseCurrXmlFile()
-	Stapp.XmlFilePath = currFilePath
+	Stapp.CloseCurrProtoXmlFile()
+	Stapp.ProtoXmlFilePath = currFilePath
 	logrus.Info("SetCurrXmlFilePath done.currFilePath:", currFilePath)
 }
 
@@ -157,8 +158,19 @@ func (Stapp *CoreManager) ReadConfigFromFile(filename string) {
 		logrus.Error("ReadConfigFromFile failed. err:", err)
 		panic(err)
 	}
+	Stapp.ConfigXmlFilePath = filename
+	logrus.Info("ReadConfigFromFile done. filename:", filename)
+}
 
-	logrus.Info("ReadConfigFromFile done.")
+// 保存配置
+func (Stapp *CoreManager) SaveConfigToFile(filename string) {
+	// 如果现在打开的xml不为空,则先保存现在打开的xml
+	if nil == Stapp.Config {
+		logrus.Info("Need not close the config xml. Stapp.FileEtree is nil.")
+		return
+	}
+	Stapp.ProtoXmlFilePath = ""
+	logrus.Info("CloseCurrProtoXmlFile done.")
 }
 
 // 读取服务器命名配置
@@ -387,7 +399,6 @@ func (Stapp *CoreManager) GetGenProtoPath() (bool, string) {
 
 // 获取 pb 产生路径
 func (Stapp *CoreManager) GetGenPbPath() (bool, string) {
-	// 读取Server及其对应的简写
 	configElement := Stapp.Config.FindElement("config")
 	if configElement == nil {
 		logrus.Error("[GetGenProtoPath] read config failed. config is not exist.")
@@ -418,6 +429,44 @@ func (Stapp *CoreManager) GetGenPbPath() (bool, string) {
 	return true, strFilePath
 }
 
+func (Stapp *CoreManager) GetSSHConfig() (bool, string, string, string, string) {
+	if nil == Stapp.Config {
+		logrus.Warn("GetSSHConfig failed. invalid param.")
+		return false, "", "", "", ""
+	}
+	configElement := Stapp.Config.FindElement("config")
+	if configElement == nil {
+		logrus.Error("[GetSSHConfig] read config failed. config is not exist.")
+		return false, "", "", "", ""
+	}
+	configSSH := configElement.FindElement("ssh")
+	if configSSH == nil {
+		logrus.Error("[GetSSHConfig] read config failed. config is not exist.")
+		return false, "", "", "", ""
+	}
+	strIP := ""
+	strPort := ""
+	strUsername := ""
+	strPassword := ""
+	cfgIP := configSSH.SelectAttr("ip")
+	if cfgIP != nil {
+		strIP = cfgIP.Value
+	}
+	cfgPort := configSSH.SelectAttr("port")
+	if cfgPort != nil {
+		strPort = cfgPort.Value
+	}
+	cfgUsername := configSSH.SelectAttr("username")
+	if cfgUsername != nil {
+		strUsername = cfgUsername.Value
+	}
+	cfgPassword := configSSH.SelectAttr("password")
+	if cfgPassword != nil {
+		strPassword = cfgPassword.Value
+	}
+	return true, strIP, strPort, strUsername, strPassword
+}
+
 func (Stapp *CoreManager) SaveProtoXmlToFile() bool {
 	if nil == Stapp.FileEtree || nil == Stapp.ChangedEtree || nil == Stapp.ChangedShowEtree {
 		logrus.Warn("SaveProtoXmlToFile failed. invalid param.")
@@ -430,8 +479,8 @@ func (Stapp *CoreManager) SaveProtoXmlToFile() bool {
 	Stapp.SyncListWithETree()
 
 	Stapp.FileEtree.Indent(4)
-	Stapp.FileEtree.WriteToFile(Stapp.XmlFilePath)
-	logrus.Info("SaveProtoXmlToFile done. XmlFilePath:", Stapp.XmlFilePath)
+	Stapp.FileEtree.WriteToFile(Stapp.ProtoXmlFilePath)
+	logrus.Info("SaveProtoXmlToFile done. ProtoXmlFilePath:", Stapp.ProtoXmlFilePath)
 	return true
 }
 

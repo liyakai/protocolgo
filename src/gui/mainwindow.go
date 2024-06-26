@@ -111,7 +111,7 @@ func (stapp *StApp) SetOnClose() {
 			func(response bool) {
 				if response {
 					// 先尝试保存/关闭文件
-					stapp.CoreMgr.CloseCurrXmlFile()
+					stapp.CoreMgr.CloseCurrProtoXmlFile()
 					stapp.CoreMgr.CloseSSH()
 					logrus.Info("User closed this app.")
 					(*stapp.App).Quit() // 如果用户点击 “Yes”，则退出程序
@@ -131,7 +131,7 @@ func (stapp *StApp) SetOnClose() {
 func (stapp *StApp) CreateMenuItem() {
 
 	// 创建新文件
-	newMenuItem := fyne.NewMenuItem("new..", func() {
+	newMenuItem := fyne.NewMenuItem("new proto xml..", func() {
 		// 打开文件
 		saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
 			if err != nil {
@@ -203,31 +203,31 @@ func (stapp *StApp) CreateMenuItem() {
 
 	})
 	// 打开远程配置
-	openRemoteConfig := fyne.NewMenuItem("open ssh..", func() {
-		dialogContent := container.NewGridWithRows(4)
-		customDialog := dialog.NewCustomWithoutButtons("open remote xml", container.NewVScroll(dialogContent), *stapp.Window)
-		customDialog.Resize(fyne.NewSize(600, 400))
+	// openRemoteConfig := fyne.NewMenuItem("open ssh..", func() {
+	// 	dialogContent := container.NewGridWithRows(4)
+	// 	customDialog := dialog.NewCustomWithoutButtons("open remote xml", container.NewVScroll(dialogContent), *stapp.Window)
+	// 	customDialog.Resize(fyne.NewSize(600, 400))
 
-		dialogContent.Add(stapp.GetRemoteSshUI(customDialog))
-		// 创建退出快捷键
-		(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
-			// 在这里检查按下的是不是 Esc 键
-			if ke.Name == fyne.KeyEscape {
-				// 如果是 Esc 键，隐藏自定义对话框
-				customDialog.Hide()
-			}
-		})
+	// 	dialogContent.Add(stapp.GetRemoteSshUI(customDialog))
+	// 	// 创建退出快捷键
+	// 	(*stapp.Window).Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+	// 		// 在这里检查按下的是不是 Esc 键
+	// 		if ke.Name == fyne.KeyEscape {
+	// 			// 如果是 Esc 键，隐藏自定义对话框
+	// 			customDialog.Hide()
+	// 		}
+	// 	})
 
-		customDialog.Show()
+	// 	customDialog.Show()
 
-	})
+	// })
 	// 保存菜单项
 	saveMenuItem := fyne.NewMenuItem("save..", func() {
 		dialog.ShowConfirm("Confirmation", "Are you sure you want to Save?",
 			func(response bool) {
 				if response {
 					// addition logic to save file goes here
-					if stapp.CoreMgr.SaveToXmlFile() {
+					if stapp.CoreMgr.SaveToProtoXmlFile() {
 						dialog.ShowInformation("Saved", "File successfully saved.", *stapp.Window)
 					} else {
 						dialog.ShowInformation("Error", "Unexist opened xml or invalid xml path.", *stapp.Window)
@@ -238,7 +238,7 @@ func (stapp *StApp) CreateMenuItem() {
 
 	})
 	// 创建一个一级菜单
-	fileMenu := fyne.NewMenu("File", newMenuItem, openMenuItem, openRemoteConfig, saveMenuItem)
+	fileMenu := fyne.NewMenu("File", newMenuItem, openMenuItem, saveMenuItem)
 	// 创建菜单栏
 	menu := fyne.NewMainMenu(fileMenu)
 
@@ -618,11 +618,18 @@ func (stapp *StApp) GetUnitDetailContainer(customDialog *dialog.CustomDialog, ta
 
 func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Container {
 	sshInfoContainer := container.NewVBox()
+
+	// 从 config 获取默认配置
+	bRet, strIp, strPort, strUsername, strPassword := stapp.CoreMgr.GetSSHConfig()
 	// ip 行
 	labelIpEntry := widget.NewLabel("ip:")
 	labelIpEntry.Alignment = fyne.TextAlignTrailing
 	inputIpEntry := widget.NewEntry()
-	inputIpEntry.SetPlaceHolder("Enter ip address...")
+	if bRet {
+		inputIpEntry.Text = strIp
+	} else {
+		inputIpEntry.SetPlaceHolder("Enter ip address...")
+	}
 	splitInputIP := container.NewHSplit(labelIpEntry, inputIpEntry)
 	splitInputIP.Offset = 0.15
 	sshInfoContainer.Add(splitInputIP)
@@ -631,7 +638,11 @@ func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Cont
 	labelPortEntry := widget.NewLabel("port:")
 	labelPortEntry.Alignment = fyne.TextAlignTrailing
 	inputPortEntry := widget.NewEntry()
-	inputPortEntry.SetPlaceHolder("Enter port...")
+	if bRet {
+		inputPortEntry.Text = strPort
+	} else {
+		inputPortEntry.SetPlaceHolder("Enter port...")
+	}
 	splitInputPort := container.NewHSplit(labelPortEntry, inputPortEntry)
 	splitInputPort.Offset = 0.15
 	sshInfoContainer.Add(splitInputPort)
@@ -640,7 +651,11 @@ func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Cont
 	labelUserEntry := widget.NewLabel("user:")
 	labelUserEntry.Alignment = fyne.TextAlignTrailing
 	inputUserEntry := widget.NewEntry()
-	inputUserEntry.SetPlaceHolder("Enter user name...")
+	if bRet {
+		inputUserEntry.Text = strUsername
+	} else {
+		inputUserEntry.SetPlaceHolder("Enter user name...")
+	}
 	splitInputUser := container.NewHSplit(labelUserEntry, inputUserEntry)
 	splitInputUser.Offset = 0.15
 	sshInfoContainer.Add(splitInputUser)
@@ -649,7 +664,11 @@ func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Cont
 	labelPasswordEntry := widget.NewLabel("passwd:")
 	labelPasswordEntry.Alignment = fyne.TextAlignTrailing
 	inputPasswordEntry := widget.NewEntry()
-	inputPasswordEntry.SetPlaceHolder("Enter password...")
+	if bRet {
+		inputPasswordEntry.Text = strPassword
+	} else {
+		inputPasswordEntry.SetPlaceHolder("Enter password...")
+	}
 	inputPasswordEntry.Password = true
 	splitInputPassword := container.NewHSplit(labelPasswordEntry, inputPasswordEntry)
 	splitInputPassword.Offset = 0.15
@@ -663,11 +682,14 @@ func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Cont
 			logrus.Error("[GetRemoteSshUI] OpenSSH failed for " + strError)
 		}
 	})
-	// 设置按钮样式和居中对齐
-	connectButton.Importance = widget.HighImportance
-	connectButton.Resize(connectButton.MinSize()) // 使按钮显示正常大小
-	connectButton.Alignment = widget.ButtonAlign(fyne.TextAlignCenter)
-	sshInfoContainer.Add(connectButton)
+	// 设置按钮样式
+	// connectButton.Importance = widget.HighImportance
+	cancelButton := widget.NewButton("Cancel", func() {
+		customDialog.Hide()
+	})
+
+	buttons := container.NewHBox(cancelButton, connectButton)
+	sshInfoContainer.Add(container.NewCenter(buttons))
 
 	return sshInfoContainer
 }
