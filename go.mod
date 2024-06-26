@@ -10,6 +10,7 @@ require (
 	github.com/goki/freetype v0.0.0-20181231101311-fa8a33aabaff
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/sirupsen/logrus v1.9.3
+	golang.org/x/crypto v0.14.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 

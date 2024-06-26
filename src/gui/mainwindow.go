@@ -112,6 +112,7 @@ func (stapp *StApp) SetOnClose() {
 				if response {
 					// 先尝试保存/关闭文件
 					stapp.CoreMgr.CloseCurrXmlFile()
+					stapp.CoreMgr.CloseSSH()
 					logrus.Info("User closed this app.")
 					(*stapp.App).Quit() // 如果用户点击 “Yes”，则退出程序
 				}
@@ -656,7 +657,7 @@ func (stapp *StApp) GetRemoteSshUI(customDialog *dialog.CustomDialog) *fyne.Cont
 
 	// 增加新的字段
 	connectButton := widget.NewButton("Connect", func() {
-		isSucc, strError := stapp.CoreMgr.OpenSSH(labelIpEntry.Text, inputPortEntry.Text, inputUserEntry.Text, labelPasswordEntry.Text)
+		isSucc, strError := stapp.CoreMgr.OpenSSH(inputIpEntry.Text, inputPortEntry.Text, inputUserEntry.Text, inputPasswordEntry.Text)
 		if !isSucc {
 			dialog.ShowInformation("Error!", "OpenSSH failed for "+strError, *stapp.Window)
 			logrus.Error("[GetRemoteSshUI] OpenSSH failed for " + strError)

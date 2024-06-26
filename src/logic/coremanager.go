@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"github.com/beevik/etree"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 )
 
 // 定义页签类型
@@ -45,6 +46,8 @@ type CoreManager struct {
 	SearchMap        map[string]string   // 所有可搜索元素到列表名字的映射
 	SearchBuffer     []string            // 所有可所有元素列表
 	References       map[string][]string // 字段的依赖列表
+
+	SshClient *ssh.Client // ssh 连接
 }
 
 func (Stapp *CoreManager) Init() {
@@ -1343,5 +1346,68 @@ func (coremgr *CoreManager) OpenSSH(ip string, port string, username string, pas
 		logrus.Error("[CoreManager] OpenSSH failed for invalid port:", port)
 		return false, "invalid port:" + port
 	}
+	// 先尝试关闭现有的连接
+	coremgr.CloseSSH()
+
+	// SSH配置
+	config := &ssh.ClientConfig{
+		User: username,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(password),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 忽略主机密钥检查
+	}
+
+	// 连接到远程服务器
+	var err error
+	coremgr.SshClient, err = ssh.Dial("tcp", ip+":"+port, config)
+	if err != nil {
+		logrus.Error("[CoreManager] OpenSSH failed for ", err)
+		return false, err.Error()
+	}
+
+	// 执行远程命令，这里可以添加选择文件的逻辑
+	session, err := coremgr.SshClient.NewSession()
+	if err != nil {
+		logrus.Error("[CoreManager] OpenSSH failed for ", err)
+		panic(err)
+	}
+	defer session.Close()
+
+	// 示例：在远程服务器上执行 ls 命令并输出结果
+	output, err := session.CombinedOutput("cd ~; ls;")
+	if err != nil {
+		logrus.Error("[CoreManager] OpenSSH failed for ", err)
+		panic(err)
+	}
+	logrus.Info(string(output))
+
 	return true, ""
+}
+
+func (coremgr *CoreManager) CloseSSH() {
+	err := coremgr.CheckConnection(coremgr.SshClient)
+	if err != nil {
+		coremgr.SshClient.Close()
+		logrus.Info("[CoreManager] CloseSSH sucess from connect status.")
+	}
+	logrus.Info("[CoreManager] CloseSSH sucess from disconnect status.")
+}
+
+// 检查连接状态的方法
+func (coremgr *CoreManager) CheckConnection(client *ssh.Client) error {
+	if client == nil {
+		return nil
+	}
+	// 在这里执行一个简单的命令来检查连接状态，例如执行"ls"命令
+	session, err := client.NewSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	// 尝试执行一个简单命令
+	// 如果连接已断开，将会返回相应的错误
+	_, err = session.CombinedOutput("ls")
+	return err
 }
